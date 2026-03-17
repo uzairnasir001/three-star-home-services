@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Three Stars Home Services",
+  "description": "A comprehensive on-demand home services platform for Multan, Pakistan, offering construction, grocery delivery, and event management with a 30-minute delivery promise.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
