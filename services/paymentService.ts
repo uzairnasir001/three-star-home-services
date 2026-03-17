@@ -108,9 +108,13 @@ class PaymentService {
 
     const params: Record<string, string | number> = {
       pp_Version: '1.1',
+      pp_TxnType: 'OTC',
       pp_MerchantID: JAZZCASH_CONFIG.merchantId,
+      pp_SubMerchantID: '',
       pp_Language: 'EN',
       pp_Password: JAZZCASH_CONFIG.password,
+      pp_BankID: '',
+      pp_ProductID: '',
       pp_TxnRefNo: txnRef,
       pp_Amount: Math.round(request.amount * 100),
       pp_TxnCurrency: 'PKR',
@@ -119,6 +123,11 @@ class PaymentService {
       pp_BillReference: request.bookingId,
       pp_Description: request.description,
       pp_ReturnURL: request.returnUrl,
+      ppmpf_1: request.customerPhone.replace(/\D/g, '').slice(-11),
+      ppmpf_2: '',
+      ppmpf_3: '',
+      ppmpf_4: '',
+      ppmpf_5: '',
     };
 
     const secureHash = await generateSecureHash(params, JAZZCASH_CONFIG.integritySalt);
