@@ -31,7 +31,7 @@ const JAZZCASH_CONFIG: JazzCashConfig = {
   integritySalt: import.meta.env.VITE_JAZZCASH_INTEGRITY_SALT || import.meta.env.VITE_JAZZCASH_INTEGRITY_CHECK_KEY || '',
   paymentUrl:
     import.meta.env.VITE_JAZZCASH_PAYMENT_URL ||
-    'https://onlinepayments.jazzcash.com.pk/payment-orchestrator/payment/api/v1/merchant/payment',
+    'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform',
 };
 
 /**
