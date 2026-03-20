@@ -318,56 +318,74 @@ const Book: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Category</label>
-                <select 
-                  required
-                  className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all appearance-none"
-                  value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value as ServiceCategory})}
-                >
-                  <option value="">Select Category</option>
-                  {Object.values(ServiceCategory).map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select 
+                    required
+                    className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 text-gray-900 pr-12 focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer shadow-sm hover:bg-white focus:outline-none"
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value as ServiceCategory})}
+                  >
+                    <option value="">Select Category</option>
+                    {Object.values(ServiceCategory).map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true" className="text-gray-400">
+                      <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Service Type</label>
-                <select 
-                  required
-                  disabled={!formData.category}
-                  className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all appearance-none disabled:opacity-50"
-                  value={formData.service}
-                  onChange={(e) => setFormData({...formData, service: e.target.value})}
-                >
-                  <option value="">Select Service</option>
-                  {availableServices.map(service => (
-                    <option key={service.id} value={service.name}>{service.name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select 
+                    required
+                    disabled={!formData.category}
+                    className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 text-gray-900 pr-12 focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer shadow-sm disabled:opacity-50 hover:bg-white disabled:hover:bg-gray-50 focus:outline-none"
+                    value={formData.service}
+                    onChange={(e) => setFormData({...formData, service: e.target.value})}
+                  >
+                    <option value="">Select Service</option>
+                    {availableServices.map(service => (
+                      <option key={service.id} value={service.name}>{service.name}</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true" className="text-gray-400">
+                      <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Preferred Date</label>
-                <input 
-                  required
-                  type="date"
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all"
-                  value={formData.date}
-                  onChange={(e) => setFormData({...formData, date: e.target.value})}
-                />
+                <div className="relative">
+                  <input 
+                    required
+                    type="date"
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 pr-12 focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm"
+                    value={formData.date}
+                    onChange={(e) => setFormData({...formData, date: e.target.value})}
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Preferred Time</label>
-                <input 
-                  required
-                  type="time"
-                  className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all"
-                  value={formData.time}
-                  onChange={(e) => setFormData({...formData, time: e.target.value})}
-                />
+                <div className="relative">
+                  <input 
+                    required
+                    type="time"
+                    className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 pr-12 focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all shadow-sm"
+                    value={formData.time}
+                    onChange={(e) => setFormData({...formData, time: e.target.value})}
+                  />
+                </div>
               </div>
             </div>
 
