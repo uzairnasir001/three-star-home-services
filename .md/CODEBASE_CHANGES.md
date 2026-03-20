@@ -1,6 +1,6 @@
 # Codebase Implementation Notes: Supabase + JazzCash Backend
 
-This document explains the changes I made in this codebase so my friend can quickly understand why each part exists (Supabase persistence, JazzCash payment integration, and the Express backend proxy).
+This document explains the changes I made in this codebase so you can quickly understand why each part exists (Supabase persistence, JazzCash payment integration, and the Express backend proxy).
 
 ## 1) High-level goal
 This project started as a Vite + React frontend with local-only persistence. I then implemented the following:
