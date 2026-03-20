@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { paymentService } from '../services/paymentService';
+import type { MwalletCnicPaymentResult, MwalletCnicPaymentRequest } from '../services/paymentService';
 
 interface JazzCashPaymentProps {
   amount: number;
@@ -8,7 +9,7 @@ interface JazzCashPaymentProps {
   customerEmail: string;
   customerPhone: string;
   serviceDescription: string;
-  onPaymentInitiated: (transactionRef: string) => void;
+  onPaymentResult: (result: MwalletCnicPaymentResult) => void;
   onError: (error: string) => void;
   onCancel: () => void;
 }
@@ -20,11 +21,12 @@ const JazzCashPayment: React.FC<JazzCashPaymentProps> = ({
   customerEmail,
   customerPhone,
   serviceDescription,
-  onPaymentInitiated,
+  onPaymentResult,
   onError,
   onCancel
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [cnicLast6, setCnicLast6] = useState('');
 
   const handlePaymentClick = async () => {
     if (amount <= 0) {
@@ -32,38 +34,27 @@ const JazzCashPayment: React.FC<JazzCashPaymentProps> = ({
       return;
     }
 
+    const cleanedCnic = (cnicLast6 || '').replace(/\D/g, '').slice(-6);
+    if (!/^\d{6}$/.test(cleanedCnic)) {
+      onError('Please enter CNIC last 6 digits (numbers only).');
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
-      const returnUrl = `${window.location.origin}/#book?payment=complete`;
-
-      const { formUrl, formData } = await paymentService.initiatePayment({
+      const result = await paymentService.initiateMwalletCnicRestPayment({
         bookingId,
         amount,
         customerName,
         customerEmail,
         customerPhone,
         description: serviceDescription,
-        returnUrl,
-      });
+        returnUrl: window.location.origin,
+        cnicLast6: cleanedCnic,
+      } as MwalletCnicPaymentRequest);
 
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = formUrl;
-
-      Object.entries(formData).forEach(([key, value]) => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = value;
-        form.appendChild(input);
-      });
-
-      sessionStorage.setItem('jazzcash_txn_ref', formData.pp_TxnRefNo);
-      onPaymentInitiated(formData.pp_TxnRefNo);
-
-      document.body.appendChild(form);
-      form.submit();
+      onPaymentResult(result);
     } catch (error) {
       setIsProcessing(false);
       onError('Failed to initiate payment. Please try again.');
@@ -99,9 +90,24 @@ const JazzCashPayment: React.FC<JazzCashPaymentProps> = ({
         </div>
       </div>
 
+      <div className="mb-6">
+        <h4 className="font-semibold text-gray-700 mb-3">CNIC Verification</h4>
+        <input
+          value={cnicLast6}
+          onChange={(e) => setCnicLast6(e.target.value)}
+          inputMode="numeric"
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary outline-none transition-all"
+          placeholder="Enter CNIC last 6 digits"
+          aria-label="CNIC last 6 digits"
+        />
+        <p className="text-xs text-gray-500 mt-2">
+          Required for MWALLET REST v2.0 (with CNIC).
+        </p>
+      </div>
+
       <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-6">
         <p className="text-xs text-blue-700">
-          💳 You will be redirected to JazzCash to complete the payment securely.
+          💳 Processing MWALLET REST payment and waiting for response.
         </p>
       </div>
 

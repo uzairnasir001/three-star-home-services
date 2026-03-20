@@ -4,6 +4,7 @@ import { SERVICES, BUSINESS_INFO } from '../constants';
 import { ServiceCategory } from '../types';
 import { dataService } from '../services/dataService';
 import { paymentService } from '../services/paymentService';
+import type { MwalletCnicPaymentResult } from '../services/paymentService';
 import { formatCurrency } from '../utils/currency';
 import JazzCashPayment from '../components/JazzCashPayment';
 import PaymentMethods from '../components/PaymentMethods';
@@ -117,6 +118,40 @@ const Book: React.FC = () => {
     }
   };
 
+  const handleJazzCashResult = async (result: MwalletCnicPaymentResult) => {
+    const txnRefNo = result.transactionRefNo;
+    const raw = result.response || {};
+    const code = String(raw.pp_ResponseCode ?? raw.responseCode ?? '').trim();
+    const message = String(raw.pp_ResponseMessage ?? raw.responseMessage ?? '').trim();
+
+    let paymentStatus: 'pending' | 'completed' | 'failed' | 'cancelled';
+    if (code === '000' || code === '0') paymentStatus = 'completed';
+    else if (code === '200') paymentStatus = 'cancelled';
+    else paymentStatus = 'failed';
+
+    setTransactionId(txnRefNo);
+
+    if (bookingId) {
+      try {
+        await dataService.updateBooking(bookingId, {
+          transactionId: txnRefNo,
+          paymentMethod: 'JazzCash',
+          paymentStatus,
+          amountPaid: selectedServicePrice ?? undefined,
+        });
+      } catch (err) {
+        console.error('Failed to update booking with JazzCash result:', err);
+      }
+    }
+
+    if (paymentStatus === 'completed') {
+      setStatus('success');
+    } else {
+      alert(`JazzCash payment failed: ${message || code || 'Unknown error'}`);
+      setStatus('idle');
+    }
+  };
+
   const handlePaymentError = (error: string) => {
     alert(`Payment Error: ${error}`);
     setStatus('idle');
@@ -151,7 +186,7 @@ const Book: React.FC = () => {
             customerEmail={formData.email}
             customerPhone={formData.phone}
             serviceDescription={formData.service}
-            onPaymentInitiated={handlePaymentInitiated}
+            onJazzCashResult={handleJazzCashResult}
             onError={handlePaymentError}
             onCancel={handlePaymentCancel}
             onCompleted={() => setStatus('success')}

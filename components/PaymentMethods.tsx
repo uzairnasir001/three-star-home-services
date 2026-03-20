@@ -1,5 +1,6 @@
 import React from 'react';
 import JazzCashPayment from './JazzCashPayment';
+import type { MwalletCnicPaymentResult } from '../services/paymentService';
 
 interface Props {
   amount: number;
@@ -8,7 +9,7 @@ interface Props {
   customerEmail: string;
   customerPhone: string;
   serviceDescription: string;
-  onPaymentInitiated: (transactionRef: string, method?: string) => void;
+  onJazzCashResult: (result: MwalletCnicPaymentResult) => void;
   onError: (err: string) => void;
   onCancel: () => void;
   onCompleted: () => void;
@@ -21,7 +22,7 @@ const PaymentMethods: React.FC<Props> = ({
   customerEmail,
   customerPhone,
   serviceDescription,
-  onPaymentInitiated,
+  onJazzCashResult,
   onError,
   onCancel,
   onCompleted
@@ -38,7 +39,7 @@ const PaymentMethods: React.FC<Props> = ({
         customerEmail={customerEmail}
         customerPhone={customerPhone}
         serviceDescription={serviceDescription}
-        onPaymentInitiated={(tx) => onPaymentInitiated(tx, 'JazzCash')}
+        onPaymentResult={onJazzCashResult}
         onError={onError}
         onCancel={onCancel}
       />

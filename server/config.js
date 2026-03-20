@@ -19,5 +19,8 @@ export const config = {
     apiBaseUrl:
       process.env.JAZZCASH_API_BASE_URL ||
       'https://sandbox.jazzcash.com.pk',
+    mwalletRestV2CnicUrl:
+      process.env.VITE_JAZZCASH_MWALLET_REST_V2_URL ||
+      'https://onlinepayments.jazzcash.com.pk/payment-orchestrator/api/v2/rest/payments/m-wallet',
   },
 };

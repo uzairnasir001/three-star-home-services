@@ -11,7 +11,9 @@ export function generateSecureHash(params, integritySalt) {
   const filtered = {};
   for (const [key, value] of Object.entries(params)) {
     if (
-      key.toLowerCase().startsWith('pp_') &&
+      // JazzCash secure hash rules consider parameters starting with "pp"
+      // e.g. ppmpf_1 should be included, so we check for "pp" (not "pp_").
+      key.toLowerCase().startsWith('pp') &&
       key.toLowerCase() !== 'pp_securehash' &&
       value != null &&
       String(value).trim() !== ''

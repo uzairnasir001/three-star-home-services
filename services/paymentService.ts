@@ -25,6 +25,17 @@ export interface PaymentResponse {
   error?: string;
 }
 
+export interface MwalletCnicPaymentRequest extends PaymentRequest {
+  // MWALLET REST v2.0 (with CNIC) requires last 6 digits of CNIC
+  cnicLast6: string;
+}
+
+export interface MwalletCnicPaymentResult {
+  transactionRefNo: string;
+  httpStatus: number;
+  response: any; // JazzCash response payload (pp_ResponseCode, pp_ResponseMessage, etc.)
+}
+
 const JAZZCASH_CONFIG: JazzCashConfig = {
   merchantId: import.meta.env.VITE_JAZZCASH_MERCHANT_ID || '',
   password: import.meta.env.VITE_JAZZCASH_PASSWORD || '',
@@ -33,6 +44,11 @@ const JAZZCASH_CONFIG: JazzCashConfig = {
     import.meta.env.VITE_JAZZCASH_PAYMENT_URL ||
     'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform',
 };
+
+// From your PDF: MWALLET REST API v2.0 (with CNIC) endpoint
+const MWALLET_REST_V2_CNIC_URL =
+  import.meta.env.VITE_JAZZCASH_MWALLET_REST_V2_URL ||
+  'https://onlinepayments.jazzcash.com.pk/payment-orchestrator/api/v2/rest/payments/m-wallet';
 
 /**
  * Generate pp_SecureHash per JazzCash Secure Hash Algorithm Documentation
@@ -94,6 +110,25 @@ function formatTxnDateTime(date: Date): string {
   return `${y}${m}${d}${h}${min}${s}`;
 }
 
+function toPKTDate(date: Date): Date {
+  // Convert to Asia/Karachi and format using PKT time
+  return new Date(
+    date.toLocaleString('en-US', {
+      timeZone: 'Asia/Karachi',
+    })
+  );
+}
+
+function formatTxnDateTimePKT(date: Date): string {
+  return formatTxnDateTime(toPKTDate(date));
+}
+
+function makeBillReferenceAlnum(input: string): string {
+  // PDF requirement: pp_BillReference must be alphanumeric only (A–Z, a–z, 0–9)
+  const cleaned = (input || '').replace(/[^A-Za-z0-9]/g, '');
+  return cleaned || 'billRef';
+}
+
 class PaymentService {
   /**
    * Initiate JazzCash payment (async - HMAC-SHA256)
@@ -108,7 +143,7 @@ class PaymentService {
 
     const params: Record<string, string | number> = {
       pp_Version: '1.1',
-      pp_TxnType: 'OTC',
+      pp_TxnType: 'MWALLET',
       pp_MerchantID: JAZZCASH_CONFIG.merchantId,
       pp_SubMerchantID: '',
       pp_Language: 'EN',
@@ -141,6 +176,38 @@ class PaymentService {
     return {
       formUrl: JAZZCASH_CONFIG.paymentUrl,
       formData,
+    };
+  }
+
+  /**
+   * MWALLET REST API v2.0 (with CNIC)
+   * Direct REST call (no merchantform redirect). Returns JazzCash response.
+   */
+  async initiateMwalletCnicRestPayment(
+    request: MwalletCnicPaymentRequest
+  ): Promise<MwalletCnicPaymentResult> {
+    if (!request.cnicLast6 || !/^\d{6}$/.test(request.cnicLast6)) {
+      throw new Error('CNIC last 6 digits is required');
+    }
+
+    // CORS fix: call your own backend, which talks to JazzCash server-side.
+    const res = await fetch('/api/initiate-mwallet-cnic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bookingId: request.bookingId,
+        amount: request.amount,
+        customerPhone: request.customerPhone,
+        description: request.description,
+        cnicLast6: request.cnicLast6,
+      }),
+    });
+
+    const data = await res.json().catch(async () => ({ raw: await res.text() }));
+    return {
+      transactionRefNo: data.transactionRefNo || '',
+      httpStatus: res.status,
+      response: data.response || data,
     };
   }
 

@@ -137,6 +137,115 @@ router.post('/check-payment-status', async (req, res) => {
   }
 });
 
+/**
+ * MWALLET REST API v2.0 (with CNIC) - initiate payment
+ * Called by the frontend via your backend to avoid browser CORS.
+ *
+ * Expects:
+ * - bookingId: string (pp_BillReference)
+ * - amount: number (pp_Amount expects amount * 100)
+ * - customerPhone: string (pp_MobileNumber)
+ * - description: string (pp_Description)
+ * - cnicLast6: string (pp_CNIC)
+ */
+router.post('/initiate-mwallet-cnic', async (req, res) => {
+  try {
+    const { bookingId, amount, customerPhone, description, cnicLast6 } = req.body || {};
+
+    if (!cnicLast6 || !/^\d{6}$/.test(String(cnicLast6))) {
+      return res.status(400).json({ success: false, error: 'CNIC last 6 digits is required' });
+    }
+    if (!bookingId) {
+      return res.status(400).json({ success: false, error: 'bookingId is required' });
+    }
+    if (!customerPhone) {
+      return res.status(400).json({ success: false, error: 'customerPhone is required' });
+    }
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ success: false, error: 'amount is required' });
+    }
+
+    const toPKTDate = (date) =>
+      new Date(
+        date.toLocaleString('en-US', {
+          timeZone: 'Asia/Karachi',
+        })
+      );
+
+    const formatTxnDateTime = (date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      const h = String(date.getHours()).padStart(2, '0');
+      const min = String(date.getMinutes()).padStart(2, '0');
+      const s = String(date.getSeconds()).padStart(2, '0');
+      return `${y}${m}${d}${h}${min}${s}`;
+    };
+
+    const formatTxnExpiryPlusOneDay = (date) => {
+      const expiry = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+      return formatTxnDateTime(expiry);
+    };
+
+    const makeBillReferenceAlnum = (input) => {
+      const cleaned = String(input || '').replace(/[^A-Za-z0-9]/g, '');
+      return cleaned || 'billRef';
+    };
+
+    const pktNow = toPKTDate(new Date());
+    const txnRefNo = `Thr${formatTxnDateTime(pktNow)}`;
+
+    // Build request payload per PDF:
+    // - values must be strings
+    // - empty params must be included as "" (not removed)
+    const params = {
+      pp_Version: '2.0',
+      pp_TxnType: 'MWALLET',
+      pp_Language: 'EN',
+      pp_MerchantID: config.jazzcash.merchantId,
+      pp_SubMerchantID: '',
+      pp_Password: config.jazzcash.password,
+      pp_BankID: '',
+      pp_ProductID: '',
+      pp_TxnRefNo: txnRefNo,
+      pp_Amount: String(Math.round(Number(amount) * 100)),
+      pp_TxnCurrency: 'PKR',
+      pp_TxnDateTime: formatTxnDateTime(pktNow),
+      pp_TxnExpiryDateTime: formatTxnExpiryPlusOneDay(pktNow),
+      pp_BillReference: makeBillReferenceAlnum(bookingId),
+      pp_Description: String(description || ''),
+      pp_CNIC: String(cnicLast6),
+      pp_MobileNumber: String(customerPhone),
+      ppmpf_1: '',
+      ppmpf_2: '',
+      ppmpf_3: '',
+      ppmpf_4: '',
+      ppmpf_5: '',
+      pp_SecureHash: '',
+    };
+
+    params.pp_SecureHash = generateSecureHash(params, config.jazzcash.integritySalt);
+
+    const response = await fetch(config.jazzcash.mwalletRestV2CnicUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+
+    const data = await response.json().catch(async () => ({ raw: await response.text() }));
+
+    return res.json({
+      success: true,
+      transactionRefNo: txnRefNo,
+      httpStatus: response.status,
+      response: data,
+    });
+  } catch (err) {
+    console.error('[MWALLET REST v2.0 CNIC] Error:', err);
+    return res.status(500).json({ success: false, error: 'Failed to initiate MWALLET payment' });
+  }
+});
+
 async function findBookingByTxnRef(txnRef) {
   const { data } = await supabase
     .from('bookings')
