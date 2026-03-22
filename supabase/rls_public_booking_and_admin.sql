@@ -1,18 +1,11 @@
 -- =============================================================================
 -- Row Level Security (RLS) for public booking + contact + admin dashboard
 -- =============================================================================
--- Error: "new row violates row-level security policy for table bookings"
+-- Supabase API uses JWT roles: "anon" (guest) and "authenticated" (logged in).
+-- Prefer TO anon, authenticated — "TO public" can still fail for API requests in
+-- some setups (e.g. live site 42501 while policies look correct in pg_policies).
 --
--- Common causes:
--- 1) No INSERT policy for the DB role your client is using.
--- 2) You logged into Admin in the SAME browser — then the client role is
---    "authenticated", NOT "anon". Policies that only allow anon will FAIL.
---
--- Fix: INSERT/UPDATE use TO public (covers both anon + authenticated).
---      SELECT/DELETE stay authenticated-only (admin dashboard).
---
--- Run in: Supabase Dashboard → SQL Editor → New query → Run
--- Confirm project URL matches VITE_SUPABASE_URL in .env.local
+-- Run in: Supabase Dashboard → SQL Editor (project: same URL as VITE_SUPABASE_URL)
 -- =============================================================================
 
 -- ----- BOOKINGS ----------------------------------------------------------------
@@ -27,18 +20,25 @@ DROP POLICY IF EXISTS "bookings_auth_insert" ON public.bookings;
 DROP POLICY IF EXISTS "bookings_auth_update" ON public.bookings;
 DROP POLICY IF EXISTS "bookings_auth_select" ON public.bookings;
 DROP POLICY IF EXISTS "bookings_auth_delete" ON public.bookings;
+DROP POLICY IF EXISTS "bookings_explicit_anon_auth_insert" ON public.bookings;
+DROP POLICY IF EXISTS "bookings_explicit_anon_auth_update" ON public.bookings;
 
--- Booking form: works for visitors (anon) AND if you still have an admin session (authenticated)
-CREATE POLICY "bookings_public_insert"
+-- Table privileges (RLS still applies on top of this)
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT INSERT, UPDATE ON TABLE public.bookings TO anon, authenticated;
+GRANT SELECT, DELETE ON TABLE public.bookings TO authenticated;
+
+-- Guest + logged-in: create / update booking (payment step updates same row)
+CREATE POLICY "bookings_client_insert"
   ON public.bookings
   FOR INSERT
-  TO public
+  TO anon, authenticated
   WITH CHECK (true);
 
-CREATE POLICY "bookings_public_update"
+CREATE POLICY "bookings_client_update"
   ON public.bookings
   FOR UPDATE
-  TO public
+  TO anon, authenticated
   USING (true)
   WITH CHECK (true);
 
@@ -64,10 +64,13 @@ DROP POLICY IF EXISTS "contact_public_insert" ON public.contact_messages;
 DROP POLICY IF EXISTS "contact_auth_select" ON public.contact_messages;
 DROP POLICY IF EXISTS "contact_auth_delete" ON public.contact_messages;
 
-CREATE POLICY "contact_public_insert"
+GRANT INSERT ON TABLE public.contact_messages TO anon, authenticated;
+GRANT SELECT, DELETE ON TABLE public.contact_messages TO authenticated;
+
+CREATE POLICY "contact_client_insert"
   ON public.contact_messages
   FOR INSERT
-  TO public
+  TO anon, authenticated
   WITH CHECK (true);
 
 CREATE POLICY "contact_auth_select"
@@ -83,7 +86,9 @@ CREATE POLICY "contact_auth_delete"
   USING (true);
 
 -- =============================================================================
--- Debug (optional): list policies Supabase is using
--- SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check
--- FROM pg_policies WHERE tablename IN ('bookings', 'contact_messages');
+-- If INSERT still fails, check for RESTRICTIVE policies (all must pass):
+--   SELECT policyname, permissive, cmd, roles, qual, with_check
+--   FROM pg_policies WHERE tablename = 'bookings';
+-- permissive should be PERMISSIVE for the policies above. If any RESTRICTIVE
+-- row exists on bookings, drop or fix it.
 -- =============================================================================
