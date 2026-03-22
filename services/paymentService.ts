@@ -211,9 +211,22 @@ class PaymentService {
       }),
     });
 
-    const data = await res.json().catch(async () => ({ raw: await res.text() }));
+    const rawText = await res.text().catch(() => '');
+    let data: Record<string, unknown> = {};
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      data = { raw: rawText };
+    }
+
+    if (res.status === 404 && (rawText.includes('NOT_FOUND') || rawText.includes('could not be found'))) {
+      throw new Error(
+        'Payment API is not on Vercel. Deploy Node (npm start) and set vercel.json rewrite to that URL, or set VITE_API_BASE_URL. See .md/DEPLOY_VERCEL_NODE_API.md'
+      );
+    }
+
     return {
-      transactionRefNo: data.transactionRefNo || '',
+      transactionRefNo: (data.transactionRefNo as string) || '',
       httpStatus: res.status,
       response: data.response || data,
     };
