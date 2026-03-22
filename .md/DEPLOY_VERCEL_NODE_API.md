@@ -1,105 +1,69 @@
-# Vercel frontend + Node API (JazzCash `/api/*`)
+# Deploy on Vercel (frontend + JazzCash API)
 
-## Why you see `NOT_FOUND` / `bom1::…` on `/api/initiate-mwallet-cnic`
+## How it works
 
-Vercel only hosts the **static Vite build**. There is **no** Express server there unless you add one.  
-`fetch("/api/...")` goes to **your-project.vercel.app** → **404**.
+- **Vite build** → static files (`dist/`) for the React app.
+- **`/api/*`** → **Vercel Serverless Functions** in the repo root **`api/`** folder:
+  - `api/initiate-mwallet-cnic.js`
+  - `api/check-payment-status.js`
+  - `api/jazzcash-ipn.js`
+  - `api/health.js`
 
-## Fix (pick one)
+Shared logic lives in **`server/lib/jazzcashLogic.js`** (also used by **Express** when you run `npm run server` locally).
 
-### Option A — **Recommended:** `vercel.json` reverse proxy (no CORS for browser)
+The same repo supports:
 
-1. Deploy the Node app (e.g. **Render**, Railway, Fly.io):
-   - **Build command:** `npm run build`
-   - **Start command:** `npm start`
-   - Set env vars: same secrets as `.env.local` (JazzCash, `SUPABASE_SERVICE_ROLE_KEY`, etc.).
+- **Production (Vercel):** serverless `/api/*`
+- **Local dev:** `npm run dev` + `npm run server` with Vite proxy → Express on `:3001`
 
-2. Copy your real API origin, e.g. `https://three-stars-api.onrender.com`.
-
-3. Edit **`vercel.json`** in this repo — replace `YOUR-BACKEND` in the rewrite `destination` with your host **only** (no path):
-
-   ```json
-   "destination": "https://three-stars-api.onrender.com/api/:path*"
-   ```
-
-   Vercel forwards `GET/POST /api/initiate-mwallet-cnic` → `https://…onrender.com/api/initiate-mwallet-cnic`.
-
-4. Commit, push, let Vercel redeploy.
-
-5. Leave **`VITE_API_BASE_URL` unset** on Vercel so the app keeps using same-origin `/api/...` (proxied by Vercel).
-
-### Option B: `VITE_API_BASE_URL`
-
-Set in Vercel → Environment Variables:
-
-`VITE_API_BASE_URL=https://your-api.onrender.com` (no trailing slash)
-
-Redeploy. On the API server set **`ALLOWED_ORIGINS`** to your Vercel site URL (see `.env.example`).
+Do **not** set **`VITE_API_BASE_URL`** on Vercel if you want the browser to call **`/api/...`** on the same domain (recommended).
 
 ---
 
-## JazzCash IPN
+## Environment variables (Vercel → Project → Settings → Environment Variables)
 
-Configure the **public URL of the server that runs Express**, e.g.:
+Add the same values you use in **`.env.local`**, including:
 
-`https://your-api.onrender.com/api/jazzcash-ipn`
+| Variable | Used by |
+|----------|---------|
+| `VITE_SUPABASE_URL` | Frontend + optional server reads |
+| `VITE_SUPABASE_ANON_KEY` | Frontend |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Serverless** (bookings updates from IPN / status) |
+| `VITE_JAZZCASH_MERCHANT_ID` | Serverless |
+| `VITE_JAZZCASH_PASSWORD` | Serverless |
+| `VITE_JAZZCASH_INTEGRITY_SALT` | Serverless |
+| `VITE_JAZZCASH_PAYMENT_URL` | Frontend (if used) |
+| `JAZZCASH_API_BASE_URL` | Serverless (Retrieve API), default sandbox |
+| `VITE_JAZZCASH_MWALLET_REST_V2_URL` | Optional override for MWALLET REST URL |
 
-(not the Vercel URL, unless you only use rewrites and JazzCash can reach Vercel’s `/api/...` — then Vercel proxies to the same backend; either way the **path** must end up on your Node route).
+After changing env vars, **redeploy** so functions pick them up.
 
 ---
 
-## Error: `Cannot POST /api/initiate-mwallet-cnic` (HTML with `<pre>…</pre>`)
+## JazzCash IPN URL
 
-That means the request **reached some HTTP server**, but **nothing handled that POST**. Usually one of these:
+Use your **Vercel** site:
 
-### 1. Backend is a **static site**, not Node (most common on Render)
+`https://YOUR-PROJECT.vercel.app/api/jazzcash-ipn`
 
-If Render is set up as **Static Site** (only uploading `dist/`), or the start command is `npx serve dist` / `vite preview`, there is **no Express API**. POSTs get **“Cannot POST …”**.
+---
 
-**Fix:** Use a **Web Service** (Node):
+## Troubleshooting
 
-| Setting | Value |
-|--------|--------|
-| **Root directory** | repo root (where `package.json` is) |
-| **Build command** | `npm install && npm run build` |
-| **Start command** | `npm start` |
+### `503` + `missingEnv` on initiate
 
-`npm start` must run `NODE_ENV=production node server/index.js` (see `package.json`). After deploy, open in a browser:
+JazzCash env vars are missing in **Vercel** for the **Production** environment.
 
-`https://YOUR-API.onrender.com/api/health`  
-You should see JSON like `{ "ok": true, ... }`. If that 404s or returns HTML, the API is not running.
+### IPN not updating bookings
 
-### 2. Wrong **`vercel.json` rewrite** (missing `/api` on the backend URL)
+Set **`SUPABASE_SERVICE_ROLE_KEY`** on Vercel (not the anon key).
 
-Vercel’s example often uses:
+### Local “Cannot POST” / proxy
 
-`"destination": "https://api.example.com/:path*"`
+Use **`npm run dev:full`** or two terminals: **`npm run dev`** + **`npm run server`**.
 
-That sends `/api/initiate-mwallet-cnic` → `https://api.example.com/initiate-mwallet-cnic` (**no** `/api` on the backend).
+---
 
-Our Express routes live under **`/api/...`**, so the destination **must** include `/api/`:
+## Old setup: external Node + `vercel.json` rewrite
 
-```json
-"destination": "https://YOUR-SERVICE.onrender.com/api/:path*"
-```
-
-**Wrong:** `https://YOUR-SERVICE.onrender.com/:path*`  
-**Right:** `https://YOUR-SERVICE.onrender.com/api/:path*`
-
-### 3. Quick test (from your PC)
-
-Replace the host with your real API URL:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}" https://YOUR-API.onrender.com/api/health
-```
-
-Expect **200**. Then:
-
-```bash
-curl -s -X POST https://YOUR-API.onrender.com/api/initiate-mwallet-cnic \
-  -H "Content-Type: application/json" \
-  -d "{\"bookingId\":\"test\",\"amount\":1,\"customerPhone\":\"03001234567\",\"description\":\"t\",\"cnicLast6\":\"123456\"}"
-```
-
-Expect **JSON** (e.g. 503 missing env, or JazzCash response) — **not** HTML `Cannot POST`.
+If you previously proxied `/api` to Render/Railway, remove that rewrite. Current **`vercel.json`** only sets **`includeFiles`** so serverless bundles **`server/**`**.
