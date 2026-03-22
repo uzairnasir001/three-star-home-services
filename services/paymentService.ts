@@ -36,6 +36,14 @@ export interface MwalletCnicPaymentResult {
   response: any; // JazzCash response payload (pp_ResponseCode, pp_ResponseMessage, etc.)
 }
 
+/** Empty in dev (Vite proxies /api → :3001). In production set to your Node API origin, e.g. https://api.yourapp.com */
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+
+function apiUrl(path: string): string {
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return `${API_BASE}${p}`;
+}
+
 const JAZZCASH_CONFIG: JazzCashConfig = {
   merchantId: import.meta.env.VITE_JAZZCASH_MERCHANT_ID || '',
   password: import.meta.env.VITE_JAZZCASH_PASSWORD || '',
@@ -191,7 +199,7 @@ class PaymentService {
     }
 
     // CORS fix: call your own backend, which talks to JazzCash server-side.
-    const res = await fetch('/api/initiate-mwallet-cnic', {
+    const res = await fetch(apiUrl('/api/initiate-mwallet-cnic'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -233,7 +241,7 @@ class PaymentService {
 
   async checkTransactionStatus(transactionRef: string): Promise<PaymentResponse> {
     try {
-      const response = await fetch('/api/check-payment-status', {
+      const response = await fetch(apiUrl('/api/check-payment-status'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transactionRef }),
