@@ -22,21 +22,33 @@ Do **not** set **`VITE_API_BASE_URL`** on Vercel if you want the browser to call
 
 ## Environment variables (Vercel → Project → Settings → Environment Variables)
 
-Add the same values you use in **`.env.local`**, including:
+Use **Production** (and **Preview** if you want previews to work). Same names as **`.env.local`** — see **`.env.example`** for placeholders.
 
-| Variable | Used by |
-|----------|---------|
-| `VITE_SUPABASE_URL` | Frontend + optional server reads |
-| `VITE_SUPABASE_ANON_KEY` | Frontend |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Serverless** (bookings updates from IPN / status) |
-| `VITE_JAZZCASH_MERCHANT_ID` | Serverless |
+**Minimum set (matches a typical sandbox deploy):**
+
+| Variable | Where it’s used |
+|----------|------------------|
+| `VITE_SUPABASE_URL` | Client build + serverless config |
+| `VITE_SUPABASE_ANON_KEY` | Client build |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Serverless only** — IPN / status → Supabase updates |
+| `VITE_JAZZCASH_MERCHANT_ID` | Serverless (initiate + Retrieve hash) |
 | `VITE_JAZZCASH_PASSWORD` | Serverless |
 | `VITE_JAZZCASH_INTEGRITY_SALT` | Serverless |
-| `VITE_JAZZCASH_PAYMENT_URL` | Frontend (if used) |
-| `JAZZCASH_API_BASE_URL` | Serverless (Retrieve API), default sandbox |
-| `VITE_JAZZCASH_MWALLET_REST_V2_URL` | Optional override for MWALLET REST URL |
+| `VITE_JAZZCASH_PAYMENT_URL` | Client (merchant-form flow if used) |
+| `JAZZCASH_API_BASE_URL` | Serverless — e.g. `https://sandbox.jazzcash.com.pk` |
 
-After changing env vars, **redeploy** so functions pick them up.
+**Optional:**
+
+| Variable | Purpose |
+|----------|---------|
+| `VITE_JAZZCASH_MWALLET_REST_V2_URL` | Override MWALLET REST CNIC endpoint (otherwise default in `server/config.js`) |
+
+After adding or changing variables, **redeploy** (serverless reads env at runtime; `VITE_*` are also inlined at **build** time for the client).
+
+### Security
+
+- **Never** commit `.env.local` (repo already gitignores `*.local` and `.env*` patterns).
+- **Never** paste **service_role**, **passwords**, or **JWT keys** in chat, tickets, or screenshots. If they leak, **rotate** them in Supabase / JazzCash and update Vercel + your local `.env.local`.
 
 ---
 
