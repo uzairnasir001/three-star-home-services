@@ -150,6 +150,20 @@ router.post('/check-payment-status', async (req, res) => {
  */
 router.post('/initiate-mwallet-cnic', async (req, res) => {
   try {
+    const { merchantId, password, integritySalt, mwalletRestV2CnicUrl } = config.jazzcash;
+    const missing = [];
+    if (!merchantId) missing.push('VITE_JAZZCASH_MERCHANT_ID');
+    if (!password) missing.push('VITE_JAZZCASH_PASSWORD');
+    if (!integritySalt) missing.push('VITE_JAZZCASH_INTEGRITY_SALT (or VITE_JAZZCASH_INTEGRITY_CHECK_KEY)');
+    if (missing.length) {
+      console.error('[MWALLET REST v2.0 CNIC] Missing env:', missing.join(', '));
+      return res.status(503).json({
+        success: false,
+        error: 'JazzCash credentials not configured on the server',
+        missingEnv: missing,
+      });
+    }
+
     const { bookingId, amount, customerPhone, description, cnicLast6 } = req.body || {};
 
     if (!cnicLast6 || !/^\d{6}$/.test(String(cnicLast6))) {
@@ -226,7 +240,7 @@ router.post('/initiate-mwallet-cnic', async (req, res) => {
 
     params.pp_SecureHash = generateSecureHash(params, config.jazzcash.integritySalt);
 
-    const response = await fetch(config.jazzcash.mwalletRestV2CnicUrl, {
+    const response = await fetch(mwalletRestV2CnicUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -242,7 +256,19 @@ router.post('/initiate-mwallet-cnic', async (req, res) => {
     });
   } catch (err) {
     console.error('[MWALLET REST v2.0 CNIC] Error:', err);
-    return res.status(500).json({ success: false, error: 'Failed to initiate MWALLET payment' });
+    const isDev = process.env.NODE_ENV !== 'production';
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to initiate MWALLET payment',
+      ...(isDev && {
+        cause: err?.message || String(err),
+        hints: [
+          'Keep the API server running on port 3001: npm run server (or use npm run dev:full with Vite on 3000).',
+          'If the browser shows 500 with an empty body, the proxy target may be down — start the server and retry.',
+          'After editing .env.local, restart node server/index.js so dotenv reloads.',
+        ],
+      }),
+    });
   }
 });
 

@@ -12,6 +12,23 @@ export default defineConfig(({ mode }) => {
           '/api': {
             target: 'http://localhost:3001',
             changeOrigin: true,
+            // When Express is not running, the default error often shows as HTTP 500 in the browser.
+            configure(proxy) {
+              proxy.on('error', (err: NodeJS.ErrnoException, _req, res) => {
+                const out = res as import('http').ServerResponse;
+                if (typeof out?.writeHead === 'function' && !out.headersSent) {
+                  out.writeHead(503, { 'Content-Type': 'application/json' });
+                  out.end(
+                    JSON.stringify({
+                      success: false,
+                      error: 'API server unreachable (port 3001)',
+                      hint: 'Start the backend: npm run server — or run both: npm run dev:full',
+                      code: err?.code ?? null,
+                    })
+                  );
+                }
+              });
+            },
           },
         },
       },
