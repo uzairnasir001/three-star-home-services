@@ -3,9 +3,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// Root .env.local (Vite + many setups), then server/.env.local (overrides — local API secrets / debug flags)
+// Root .env.local first; server/.env.local wins for duplicate keys (override: true).
 dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
-dotenv.config({ path: path.join(__dirname, '.env.local') });
+dotenv.config({ path: path.join(__dirname, '.env.local'), override: true });
 dotenv.config();
 
 export const config = {
