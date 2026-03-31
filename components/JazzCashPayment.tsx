@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { paymentService } from '../services/paymentService';
-import type { MwalletCnicPaymentResult, MwalletCnicPaymentRequest } from '../services/paymentService';
+import type { MwalletCnicPaymentResult } from '../services/paymentService';
 
 interface JazzCashPaymentProps {
   amount: number;
@@ -23,7 +23,7 @@ const JazzCashPayment: React.FC<JazzCashPaymentProps> = ({
   serviceDescription,
   onPaymentResult,
   onError,
-  onCancel
+  onCancel,
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [cnicLast6, setCnicLast6] = useState('');
@@ -50,12 +50,11 @@ const JazzCashPayment: React.FC<JazzCashPaymentProps> = ({
         customerEmail,
         customerPhone,
         description: serviceDescription,
-        returnUrl: window.location.origin,
         cnicLast6: cleanedCnic,
-      } as MwalletCnicPaymentRequest);
+      });
 
       onPaymentResult(result);
-    } catch (error) {
+    } catch {
       setIsProcessing(false);
       onError('Failed to initiate payment. Please try again.');
     }
@@ -91,7 +90,7 @@ const JazzCashPayment: React.FC<JazzCashPaymentProps> = ({
       </div>
 
       <div className="mb-6">
-        <h4 className="font-semibold text-gray-700 mb-3">CNIC Verification</h4>
+        <h4 className="font-semibold text-gray-700 mb-3">CNIC (last 6 digits)</h4>
         <input
           value={cnicLast6}
           onChange={(e) => setCnicLast6(e.target.value)}
@@ -100,15 +99,6 @@ const JazzCashPayment: React.FC<JazzCashPaymentProps> = ({
           placeholder="Enter CNIC last 6 digits"
           aria-label="CNIC last 6 digits"
         />
-        <p className="text-xs text-gray-500 mt-2">
-          Required for MWALLET REST v2.0 (with CNIC).
-        </p>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-6">
-        <p className="text-xs text-blue-700">
-          💳 Processing MWALLET REST payment and waiting for response.
-        </p>
       </div>
 
       <button

@@ -1,9 +1,11 @@
 /**
  * JazzCash Secure Hash - HMAC-SHA256 per official documentation
- * 1. Filter pp_* params (exclude pp_SecureHash, null/empty)
- * 2. Sort keys alphabetically
- * 3. Concatenate: SALT&value1&value2&...
- * 4. HMAC-SHA256(concatenated, integritySalt) -> uppercase hex
+ * 1. Filter params whose names start with "pp" (includes ppmpf_*), exclude pp_SecureHash
+ * 2. Omit null, undefined, and empty / whitespace-only values from the hash input only
+ *    (still send "" in JSON where the guide requires those fields on the wire)
+ * 3. Sort keys alphabetically
+ * 4. Concatenate: SALT&value1&value2&...
+ * 5. HMAC-SHA256(concatenated, integritySalt) -> uppercase hex
  */
 import crypto from 'crypto';
 
@@ -11,14 +13,12 @@ export function generateSecureHash(params, integritySalt) {
   const filtered = {};
   for (const [key, value] of Object.entries(params)) {
     if (
-      // JazzCash secure hash rules consider parameters starting with "pp"
-      // e.g. ppmpf_1 should be included, so we check for "pp" (not "pp_").
       key.toLowerCase().startsWith('pp') &&
       key.toLowerCase() !== 'pp_securehash' &&
       value != null &&
       String(value).trim() !== ''
     ) {
-      filtered[key] = String(value).trim();
+      filtered[key] = typeof value === 'string' ? value.trim() : String(value).trim();
     }
   }
 

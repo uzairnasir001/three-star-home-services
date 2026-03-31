@@ -12,7 +12,6 @@ interface Props {
   onJazzCashResult: (result: MwalletCnicPaymentResult) => void;
   onError: (err: string) => void;
   onCancel: () => void;
-  onCompleted: () => void;
 }
 
 const PaymentMethods: React.FC<Props> = ({
@@ -25,7 +24,6 @@ const PaymentMethods: React.FC<Props> = ({
   onJazzCashResult,
   onError,
   onCancel,
-  onCompleted
 }) => {
   return (
     <div className="bg-white p-8 rounded-lg shadow-lg max-w-xl mx-auto">

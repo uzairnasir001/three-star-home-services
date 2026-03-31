@@ -29,6 +29,9 @@ const Book: React.FC = () => {
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
 
+  const bookingLineItem = SERVICES.find((s) => s.name === formData.service);
+  const paymentAmount = bookingLineItem?.price ?? 0;
+
   useEffect(() => {
     if (formData.category) {
       const filtered = SERVICES.filter(s => s.category === formData.category);
@@ -41,10 +44,12 @@ const Book: React.FC = () => {
   }, [formData.category]);
 
   useEffect(() => {
-    if (formData.service) {
-      const service = SERVICES.find(s => s.name === formData.service);
-      setSelectedServicePrice(service?.price || null);
+    if (!formData.service) {
+      setSelectedServicePrice(null);
+      return;
     }
+    const service = SERVICES.find((s) => s.name === formData.service);
+    setSelectedServicePrice(service?.price ?? null);
   }, [formData.service]);
 
   // Handle return from JazzCash payment
@@ -137,7 +142,7 @@ const Book: React.FC = () => {
           transactionId: txnRefNo,
           paymentMethod: 'JazzCash',
           paymentStatus,
-          amountPaid: selectedServicePrice ?? undefined,
+          amountPaid: bookingLineItem ? paymentAmount : undefined,
         });
       } catch (err) {
         console.error('Failed to update booking with JazzCash result:', err);
@@ -180,7 +185,7 @@ const Book: React.FC = () => {
       <div className="py-20 bg-gray-50 min-h-screen">
         <div className="max-w-2xl mx-auto px-4">
           <PaymentMethods
-            amount={selectedServicePrice || 0}
+            amount={paymentAmount}
             bookingId={bookingId || ''}
             customerName={formData.name}
             customerEmail={formData.email}
@@ -189,7 +194,6 @@ const Book: React.FC = () => {
             onJazzCashResult={handleJazzCashResult}
             onError={handlePaymentError}
             onCancel={handlePaymentCancel}
-            onCompleted={() => setStatus('success')}
           />
         </div>
       </div>
@@ -345,7 +349,10 @@ const Book: React.FC = () => {
                     disabled={!formData.category}
                     className="w-full px-5 py-4 rounded-xl border border-gray-100 bg-gray-50 text-gray-900 pr-12 focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer shadow-sm disabled:opacity-50 hover:bg-white disabled:hover:bg-gray-50 focus:outline-none"
                     value={formData.service}
-                    onChange={(e) => setFormData({...formData, service: e.target.value})}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setFormData({ ...formData, service: name });
+                    }}
                   >
                     <option value="">Select Service</option>
                     {availableServices.map(service => (
