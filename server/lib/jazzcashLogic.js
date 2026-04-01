@@ -226,9 +226,11 @@ export function buildJazzcashCardReturnRedirect(returnBody) {
 export async function runInitiateJazzcashCard(body) {
   const { merchantId, password, integritySalt, cardMerchantFormUrl, cardReturnUrl } = config.jazzcash;
   const missing = [];
-  if (!merchantId) missing.push('VITE_JAZZCASH_MERCHANT_ID');
-  if (!password) missing.push('VITE_JAZZCASH_PASSWORD');
-  if (!integritySalt) missing.push('VITE_JAZZCASH_INTEGRITY_SALT (or VITE_JAZZCASH_INTEGRITY_CHECK_KEY)');
+  if (!merchantId) missing.push('VITE_JAZZCASH_MERCHANT_ID or JAZZCASH_MERCHANT_ID');
+  if (!password) missing.push('VITE_JAZZCASH_PASSWORD or JAZZCASH_PASSWORD');
+  if (!integritySalt) {
+    missing.push('VITE_JAZZCASH_INTEGRITY_SALT, JAZZCASH_INTEGRITY_SALT, or VITE_JAZZCASH_INTEGRITY_CHECK_KEY');
+  }
   if (!cardReturnUrl) missing.push('JAZZCASH_CARD_RETURN_URL');
   if (missing.length) {
     console.error('[JazzCash Card] Missing env:', missing.join(', '));
@@ -286,8 +288,9 @@ export async function runInitiateJazzcashCard(body) {
     pp_SecureHash: '',
   };
 
-  /* Card v1.1 sample uses PHP hash_hmac → lowercase hex; REST/MWALLET keep uppercase default. */
-  params.pp_SecureHash = generateSecureHash(params, integritySalt, { hashHexLower: true });
+  /* Default: lowercase hex (PHP hash_hmac). If gateway rejects, set JAZZCASH_CARD_SECURE_HASH_UPPERCASE=1 on server. */
+  const cardHashUpper = process.env.JAZZCASH_CARD_SECURE_HASH_UPPERCASE === '1';
+  params.pp_SecureHash = generateSecureHash(params, integritySalt, { hashHexLower: !cardHashUpper });
 
   const supportLog = process.env.JAZZCASH_SUPPORT_LOG === '1';
   const debug = supportLog || process.env.JAZZCASH_LOG_OUTBOUND_PAYLOAD === '1';
@@ -323,9 +326,11 @@ export async function runInitiateJazzcashCard(body) {
 export async function runInitiateMwalletCnic(body) {
   const { merchantId, password, integritySalt, mwalletRestV2CnicUrl } = config.jazzcash;
   const missing = [];
-  if (!merchantId) missing.push('VITE_JAZZCASH_MERCHANT_ID');
-  if (!password) missing.push('VITE_JAZZCASH_PASSWORD');
-  if (!integritySalt) missing.push('VITE_JAZZCASH_INTEGRITY_SALT (or VITE_JAZZCASH_INTEGRITY_CHECK_KEY)');
+  if (!merchantId) missing.push('VITE_JAZZCASH_MERCHANT_ID or JAZZCASH_MERCHANT_ID');
+  if (!password) missing.push('VITE_JAZZCASH_PASSWORD or JAZZCASH_PASSWORD');
+  if (!integritySalt) {
+    missing.push('VITE_JAZZCASH_INTEGRITY_SALT, JAZZCASH_INTEGRITY_SALT, or VITE_JAZZCASH_INTEGRITY_CHECK_KEY');
+  }
   if (missing.length) {
     console.error('[MWALLET CNIC] Missing env:', missing.join(', '));
     return {
