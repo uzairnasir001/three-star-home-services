@@ -255,8 +255,8 @@ export async function runInitiateJazzcashCard(body) {
   }
 
   const now = pktWallTime(new Date());
-  const milli = String(now.getMilliseconds()).padStart(3, '0');
-  const txnRefNo = `TRN${formatYmdHms(now)}${milli}`;
+  /** Match Checkout Page Simulator + MWALLET v2: T + YYYYMMDDHHmmss (PKT). TRN+… was rejected on onlinepayments for some merchants. */
+  const txnRefNo = `T${formatYmdHms(now)}`;
   const expiry = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   /** Page Redirection v1.1: pp_BillReference max length 20 (JazzCash); stripped UUID is 32 chars and breaks checkout. */
   const billRefRaw = String(bookingId || '').replace(/[^A-Za-z0-9]/g, '') || 'billRef';
