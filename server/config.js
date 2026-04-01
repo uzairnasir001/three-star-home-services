@@ -8,6 +8,18 @@ dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
 dotenv.config({ path: path.join(__dirname, '.env.local'), override: true });
 dotenv.config();
 
+/** Card Page Redirection: sandbox uses CustomerPortal on sandbox.jazzcash.com.pk; live uses onlinepayments orchestrator (v1.1 PDF). */
+function resolveCardMerchantFormUrl() {
+  const explicit = process.env.VITE_JAZZCASH_CARD_MERCHANT_FORM_URL?.trim();
+  if (explicit) return explicit;
+  const apiBase = process.env.JAZZCASH_API_BASE_URL || 'https://sandbox.jazzcash.com.pk';
+  const useSandboxForm = apiBase.includes('sandbox.jazzcash.com.pk');
+  if (useSandboxForm) {
+    return 'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform';
+  }
+  return 'https://onlinepayments.jazzcash.com.pk/payment-orchestrator/CustomerPortal/transactionmanagement/merchantform';
+}
+
 export const config = {
   port: process.env.PORT || 3001,
   supabase: {
@@ -24,10 +36,8 @@ export const config = {
     mwalletRestV2CnicUrl:
       process.env.VITE_JAZZCASH_MWALLET_REST_V2_URL ||
       'https://onlinepayments.jazzcash.com.pk/payment-orchestrator/api/v2/rest/payments/m-wallet',
-    /** Card Page Redirection v1.1 — POST form to JazzCash merchantform URL */
-    cardMerchantFormUrl:
-      process.env.VITE_JAZZCASH_CARD_MERCHANT_FORM_URL ||
-      'https://onlinepayments.jazzcash.com.pk/payment-orchestrator/CustomerPortal/transactionmanagement/merchantform',
+    /** Card Page Redirection v1.1 — POST form to merchantform (sandbox vs live host differs; override with VITE_JAZZCASH_CARD_MERCHANT_FORM_URL). */
+    cardMerchantFormUrl: resolveCardMerchantFormUrl(),
     /** Full URL registered in JazzCash portal (e.g. https://your-app.vercel.app/api/jazzcash-card-return) */
     cardReturnUrl: process.env.JAZZCASH_CARD_RETURN_URL || '',
     /** SPA origin for redirect after card payment (e.g. https://your-app.vercel.app or http://localhost:3000) */
