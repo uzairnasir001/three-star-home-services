@@ -30,6 +30,13 @@ async function findBookingByTxnRef(supabase, txnRef) {
   return data?.id;
 }
 
+/** 32-char hex from booking id without hyphens → canonical UUID string for DB id lookup */
+function uuidFromStrippedBillRef(stripped) {
+  const s = String(stripped || '').toLowerCase();
+  if (!/^[a-f0-9]{32}$/.test(s)) return null;
+  return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20)}`;
+}
+
 export async function runJazzcashIpn(data) {
   try {
     const receivedHash = data.pp_SecureHash || data.secureHash;
@@ -60,13 +67,33 @@ export async function runJazzcashIpn(data) {
         transaction_id: txnRefNo || undefined,
         amount_paid: pkrFromGatewayAmount(data.pp_Amount),
       };
-      let query = supabase.from('bookings').select('id');
-      if (billRef) query = query.eq('id', billRef);
-      else if (txnRefNo) query = query.eq('transaction_id', txnRefNo);
-      const { data: rows } = await query.limit(1);
-      const match = rows?.[0];
-      if (match) {
-        const { error } = await supabase.from('bookings').update(updatePayload).eq('id', match.id);
+      let matchId;
+      if (txnRefNo) {
+        matchId = await findBookingByTxnRef(supabase, txnRefNo);
+      }
+      if (!matchId && billRef) {
+        const { data: row } = await supabase
+          .from('bookings')
+          .select('id')
+          .eq('id', billRef)
+          .limit(1)
+          .maybeSingle();
+        matchId = row?.id;
+      }
+      if (!matchId && billRef) {
+        const asUuid = uuidFromStrippedBillRef(billRef);
+        if (asUuid) {
+          const { data: row } = await supabase
+            .from('bookings')
+            .select('id')
+            .eq('id', asUuid)
+            .limit(1)
+            .maybeSingle();
+          matchId = row?.id;
+        }
+      }
+      if (matchId) {
+        const { error } = await supabase.from('bookings').update(updatePayload).eq('id', matchId);
         if (error) console.error('[JazzCash IPN] Supabase update error:', error);
       }
     }
@@ -229,7 +256,9 @@ export async function runInitiateJazzcashCard(body) {
   const milli = String(now.getMilliseconds()).padStart(3, '0');
   const txnRefNo = `TRN${formatYmdHms(now)}${milli}`;
   const expiry = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const billRef = String(bookingId || '').replace(/[^A-Za-z0-9]/g, '') || 'billRef';
+  /** Page Redirection v1.1: pp_BillReference max length 20 (JazzCash); stripped UUID is 32 chars and breaks checkout. */
+  const billRefRaw = String(bookingId || '').replace(/[^A-Za-z0-9]/g, '') || 'billRef';
+  const billRef = billRefRaw.length > 20 ? billRefRaw.slice(-20) : billRefRaw;
   const ppAmount = String(amountPkr * 100);
 
   const params = {
