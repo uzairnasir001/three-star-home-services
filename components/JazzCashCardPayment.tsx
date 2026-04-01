@@ -13,6 +13,8 @@ function postRedirectForm(actionUrl: string, fields: Record<string, string>) {
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = actionUrl;
+  form.setAttribute('accept-charset', 'UTF-8');
+  form.enctype = 'application/x-www-form-urlencoded';
   for (const [name, value] of Object.entries(fields)) {
     const input = document.createElement('input');
     input.type = 'hidden';

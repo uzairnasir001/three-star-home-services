@@ -15,17 +15,14 @@ function envTrim(key) {
   return t === '' ? undefined : t;
 }
 
-/** Card Page Redirection: sandbox uses CustomerPortal on sandbox.jazzcash.com.pk; live uses onlinepayments orchestrator (v1.1 PDF). */
+/**
+ * Card Page Redirection v1.1 — default same host family as MWALLET REST (onlinepayments orchestrator).
+ * Legacy sandbox CustomerPortal (sandbox.jazzcash.com.pk) only if JazzCash tells you to use it.
+ */
 function resolveCardMerchantFormUrl() {
   const explicit = process.env.VITE_JAZZCASH_CARD_MERCHANT_FORM_URL?.trim();
   if (explicit) return explicit;
-  /* Force sandbox hosted form when Retrieve base URL does not include "sandbox" (e.g. unset/mistyped on Vercel). */
   if (process.env.JAZZCASH_CARD_USE_SANDBOX_FORM === '1') {
-    return 'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform';
-  }
-  const apiBase = process.env.JAZZCASH_API_BASE_URL || 'https://sandbox.jazzcash.com.pk';
-  const useSandboxForm = apiBase.includes('sandbox.jazzcash.com.pk');
-  if (useSandboxForm) {
     return 'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform';
   }
   return 'https://onlinepayments.jazzcash.com.pk/payment-orchestrator/CustomerPortal/transactionmanagement/merchantform';
