@@ -12,6 +12,10 @@ dotenv.config();
 function resolveCardMerchantFormUrl() {
   const explicit = process.env.VITE_JAZZCASH_CARD_MERCHANT_FORM_URL?.trim();
   if (explicit) return explicit;
+  /* Force sandbox hosted form when Retrieve base URL does not include "sandbox" (e.g. unset/mistyped on Vercel). */
+  if (process.env.JAZZCASH_CARD_USE_SANDBOX_FORM === '1') {
+    return 'https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform';
+  }
   const apiBase = process.env.JAZZCASH_API_BASE_URL || 'https://sandbox.jazzcash.com.pk';
   const useSandboxForm = apiBase.includes('sandbox.jazzcash.com.pk');
   if (useSandboxForm) {

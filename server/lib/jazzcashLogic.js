@@ -257,7 +257,8 @@ export async function runInitiateJazzcashCard(body) {
     pp_SecureHash: '',
   };
 
-  params.pp_SecureHash = generateSecureHash(params, integritySalt);
+  /* Card v1.1 sample uses PHP hash_hmac → lowercase hex; REST/MWALLET keep uppercase default. */
+  params.pp_SecureHash = generateSecureHash(params, integritySalt, { hashHexLower: true });
 
   const supportLog = process.env.JAZZCASH_SUPPORT_LOG === '1';
   const debug = supportLog || process.env.JAZZCASH_LOG_OUTBOUND_PAYLOAD === '1';

@@ -5,11 +5,14 @@
  *    (still send "" in JSON where the guide requires those fields on the wire)
  * 3. Sort keys alphabetically
  * 4. Concatenate: SALT&value1&value2&...
- * 5. HMAC-SHA256(concatenated, integritySalt) -> uppercase hex
+ * 5. HMAC-SHA256(concatenated, integritySalt) -> hex (uppercase for REST/API; Card v1.1 PHP sample uses hash_hmac → lowercase)
  */
 import crypto from 'crypto';
 
-export function generateSecureHash(params, integritySalt) {
+/**
+ * @param {{ hashHexLower?: boolean }} [options] - Card Page Redirection v1.1 matches PHP hash_hmac default (lowercase hex).
+ */
+export function generateSecureHash(params, integritySalt, options = {}) {
   const filtered = {};
   for (const [key, value] of Object.entries(params)) {
     if (
@@ -29,10 +32,13 @@ export function generateSecureHash(params, integritySalt) {
 
   const hmac = crypto.createHmac('sha256', integritySalt);
   hmac.update(concatenated, 'utf8');
-  return hmac.digest('hex').toUpperCase();
+  const hex = hmac.digest('hex');
+  return options.hashHexLower ? hex.toLowerCase() : hex.toUpperCase();
 }
 
 export function verifySecureHash(params, integritySalt, receivedHash) {
   const computed = generateSecureHash(params, integritySalt);
-  return computed === (receivedHash || '').toUpperCase();
+  const recv = String(receivedHash || '').trim();
+  if (!recv) return false;
+  return computed.toLowerCase() === recv.toLowerCase();
 }
