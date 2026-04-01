@@ -165,6 +165,131 @@ function formatYmdHms(date) {
   return `${y}${m}${d}${h}${min}${s}`;
 }
 
+/**
+ * Build redirect Location for browser after JazzCash POSTs to our card return URL.
+ * Hash routing: query on pathname so Book page reads location.search.
+ */
+export function buildJazzcashCardReturnRedirect(returnBody) {
+  const base = (
+    config.jazzcash.spaPublicOrigin ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  ).replace(/\/$/, '');
+  const sp = new URLSearchParams();
+  sp.set('payment', 'complete');
+  const passKeys = [
+    'pp_TxnRefNo',
+    'pp_ResponseCode',
+    'pp_ResponseMessage',
+    'pp_Amount',
+    'pp_BillReference',
+    'pp_TxnType',
+    'pp_TxnCurrency',
+  ];
+  const src = returnBody && typeof returnBody === 'object' ? returnBody : {};
+  for (const k of passKeys) {
+    const v = src[k];
+    if (v != null && String(v).trim() !== '') sp.set(k, String(v).trim());
+  }
+  return `${base}/?${sp.toString()}#book`;
+}
+
+/**
+ * Card Page Redirection v1.1 (MPAY) — server builds signed fields; browser POSTs form to JazzCash.
+ */
+export async function runInitiateJazzcashCard(body) {
+  const { merchantId, password, integritySalt, cardMerchantFormUrl, cardReturnUrl } = config.jazzcash;
+  const missing = [];
+  if (!merchantId) missing.push('VITE_JAZZCASH_MERCHANT_ID');
+  if (!password) missing.push('VITE_JAZZCASH_PASSWORD');
+  if (!integritySalt) missing.push('VITE_JAZZCASH_INTEGRITY_SALT (or VITE_JAZZCASH_INTEGRITY_CHECK_KEY)');
+  if (!cardReturnUrl) missing.push('JAZZCASH_CARD_RETURN_URL');
+  if (missing.length) {
+    console.error('[JazzCash Card] Missing env:', missing.join(', '));
+    return {
+      statusCode: 503,
+      json: {
+        success: false,
+        error: 'JazzCash card redirect is not configured on the server',
+        missingEnv: missing,
+      },
+    };
+  }
+
+  const { bookingId, amount, description } = body || {};
+  if (!bookingId) {
+    return { statusCode: 400, json: { success: false, error: 'bookingId is required' } };
+  }
+
+  const amountPkr = Math.round(Number(amount));
+  if (!amountPkr || amountPkr <= 0) {
+    return { statusCode: 400, json: { success: false, error: 'amount is required' } };
+  }
+
+  const now = pktWallTime(new Date());
+  const milli = String(now.getMilliseconds()).padStart(3, '0');
+  const txnRefNo = `TRN${formatYmdHms(now)}${milli}`;
+  const expiry = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const billRef = String(bookingId || '').replace(/[^A-Za-z0-9]/g, '') || 'billRef';
+  const ppAmount = String(amountPkr * 100);
+
+  const params = {
+    pp_Version: '1.1',
+    pp_TxnType: 'MPAY',
+    pp_Language: 'EN',
+    pp_MerchantID: merchantId,
+    pp_Password: password,
+    pp_TxnRefNo: txnRefNo,
+    pp_Amount: ppAmount,
+    pp_TxnCurrency: 'PKR',
+    pp_TxnDateTime: formatYmdHms(now),
+    pp_BillReference: billRef,
+    pp_Description: String(description || '').slice(0, 500),
+    pp_TxnExpiryDateTime: formatYmdHms(expiry),
+    pp_ReturnURL: cardReturnUrl,
+    pp_SubMerchantID: '',
+    pp_BankID: '',
+    pp_ProductID: '',
+    ppmpf_1: '',
+    ppmpf_2: '',
+    ppmpf_3: '',
+    ppmpf_4: '',
+    ppmpf_5: '',
+    pp_SecureHash: '',
+  };
+
+  params.pp_SecureHash = generateSecureHash(params, integritySalt);
+
+  const supportLog = process.env.JAZZCASH_SUPPORT_LOG === '1';
+  const debug = supportLog || process.env.JAZZCASH_LOG_OUTBOUND_PAYLOAD === '1';
+  if (debug) {
+    const { pp_Password: _p, ...rest } = params;
+    console.log('[JazzCash Card outbound]', JSON.stringify(rest));
+  }
+
+  const supabase = getSupabase();
+  if (supabase) {
+    const { error } = await supabase
+      .from('bookings')
+      .update({
+        transaction_id: txnRefNo,
+        payment_status: 'pending',
+        payment_method: 'JazzCash Card',
+      })
+      .eq('id', bookingId);
+    if (error) console.error('[JazzCash Card] Supabase update error:', error);
+  }
+
+  return {
+    statusCode: 200,
+    json: {
+      success: true,
+      actionUrl: cardMerchantFormUrl,
+      txnRefNo,
+      fields: params,
+    },
+  };
+}
+
 export async function runInitiateMwalletCnic(body) {
   const { merchantId, password, integritySalt, mwalletRestV2CnicUrl } = config.jazzcash;
   const missing = [];

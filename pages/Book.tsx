@@ -52,16 +52,27 @@ const Book: React.FC = () => {
     setSelectedServicePrice(service?.price ?? null);
   }, [formData.service]);
 
-  // Handle return from JazzCash payment
+  // Handle return from JazzCash (card redirect or manual deep link). Query stays on pathname; hash is #book.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const paymentComplete = params.get('payment') === 'complete' || params.get('pp_ResponseCode');
     const txnRef = params.get('pp_TxnRefNo') || sessionStorage.getItem('jazzcash_txn_ref');
+    const storedBookingId = sessionStorage.getItem('jazzcash_booking_id');
     if (paymentComplete && txnRef) {
       sessionStorage.removeItem('jazzcash_txn_ref');
+      sessionStorage.removeItem('jazzcash_booking_id');
       setStatus('verifying');
-      paymentService.checkTransactionStatus(txnRef).then((result) => {
-        setStatus(result.success ? 'success' : 'idle');
+      paymentService.checkTransactionStatus(txnRef, storedBookingId || undefined).then((result) => {
+        if (result.success) {
+          setStatus('success');
+        } else {
+          const msg =
+            params.get('pp_ResponseMessage') ||
+            result.error ||
+            'Payment could not be verified.';
+          alert(typeof msg === 'string' ? msg : 'Payment could not be verified.');
+          setStatus('idle');
+        }
       });
     }
   }, []);

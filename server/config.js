@@ -24,5 +24,15 @@ export const config = {
     mwalletRestV2CnicUrl:
       process.env.VITE_JAZZCASH_MWALLET_REST_V2_URL ||
       'https://onlinepayments.jazzcash.com.pk/payment-orchestrator/api/v2/rest/payments/m-wallet',
+    /** Card Page Redirection v1.1 — POST form to JazzCash merchantform URL */
+    cardMerchantFormUrl:
+      process.env.VITE_JAZZCASH_CARD_MERCHANT_FORM_URL ||
+      'https://onlinepayments.jazzcash.com.pk/payment-orchestrator/CustomerPortal/transactionmanagement/merchantform',
+    /** Full URL registered in JazzCash portal (e.g. https://your-app.vercel.app/api/jazzcash-card-return) */
+    cardReturnUrl: process.env.JAZZCASH_CARD_RETURN_URL || '',
+    /** SPA origin for redirect after card payment (e.g. https://your-app.vercel.app or http://localhost:3000) */
+    spaPublicOrigin:
+      process.env.JAZZCASH_SPA_PUBLIC_ORIGIN ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ''),
   },
 };

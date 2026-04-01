@@ -28,6 +28,21 @@ export interface MwalletCnicPaymentResult {
   response: Record<string, unknown>;
 }
 
+export interface JazzCashCardInitRequest {
+  bookingId: string;
+  amount: number;
+  description: string;
+}
+
+export interface JazzCashCardInitResponse {
+  success: boolean;
+  actionUrl?: string;
+  txnRefNo?: string;
+  fields?: Record<string, string>;
+  error?: string;
+  missingEnv?: string[];
+}
+
 class PaymentService {
   async initiateMwalletCnicRestPayment(
     request: MwalletCnicPaymentRequest
@@ -72,6 +87,40 @@ class PaymentService {
     };
   }
 
+  async initiateJazzcashCardPayment(request: JazzCashCardInitRequest): Promise<JazzCashCardInitResponse> {
+    const res = await fetch(apiUrl('/api/initiate-jazzcash-card'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bookingId: request.bookingId,
+        amount: request.amount,
+        description: request.description,
+      }),
+    });
+
+    const rawText = await res.text().catch(() => '');
+    let data: Record<string, unknown> = {};
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      data = { raw: rawText };
+    }
+
+    if (res.status === 404 && (rawText.includes('NOT_FOUND') || rawText.includes('could not be found'))) {
+      throw new Error('Payment API URL missing. Set VITE_API_BASE_URL or deploy the Node API.');
+    }
+
+    const fields = data.fields;
+    return {
+      success: Boolean(data.success),
+      actionUrl: data.actionUrl as string | undefined,
+      txnRefNo: data.txnRefNo as string | undefined,
+      fields: fields && typeof fields === 'object' ? (fields as Record<string, string>) : undefined,
+      error: data.error as string | undefined,
+      missingEnv: Array.isArray(data.missingEnv) ? (data.missingEnv as string[]) : undefined,
+    };
+  }
+
   verifyPaymentResponse(responseData: Record<string, string>): PaymentResponse {
     try {
       const code = String(responseData.pp_ResponseCode ?? responseData.responseCode ?? '');
@@ -92,12 +141,12 @@ class PaymentService {
     }
   }
 
-  async checkTransactionStatus(transactionRef: string): Promise<PaymentResponse> {
+  async checkTransactionStatus(transactionRef: string, bookingId?: string): Promise<PaymentResponse> {
     try {
       const response = await fetch(apiUrl('/api/check-payment-status'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactionRef }),
+        body: JSON.stringify({ transactionRef, bookingId }),
       });
       if (response.ok) {
         return await response.json();

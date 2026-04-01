@@ -3,6 +3,8 @@ import {
   runJazzcashIpn,
   runCheckPaymentStatus,
   runInitiateMwalletCnic,
+  runInitiateJazzcashCard,
+  buildJazzcashCardReturnRedirect,
 } from '../lib/jazzcashLogic.js';
 
 const router = Router();
@@ -31,6 +33,22 @@ router.post('/check-payment-status', async (req, res) => {
 router.post('/initiate-mwallet-cnic', async (req, res) => {
   const out = await runInitiateMwalletCnic(req.body || {});
   return res.status(out.statusCode).json(out.json);
+});
+
+/**
+ * Card Page Redirection v1.1 (MPAY) — returns action URL + signed form fields
+ */
+router.post('/initiate-jazzcash-card', async (req, res) => {
+  const out = await runInitiateJazzcashCard(req.body || {});
+  return res.status(out.statusCode).json(out.json);
+});
+
+/**
+ * Browser return from JazzCash (POST). Redirects to SPA with pp_* in query + #book.
+ */
+router.post('/jazzcash-card-return', (req, res) => {
+  const location = buildJazzcashCardReturnRedirect(req.body || {});
+  return res.redirect(302, location);
 });
 
 export default router;

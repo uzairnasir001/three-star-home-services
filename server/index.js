@@ -52,4 +52,6 @@ app.listen(PORT, () => {
   console.log(`  IPN: POST http://localhost:${PORT}/api/jazzcash-ipn (configure in JazzCash Credentials)`);
   console.log(`  Status: POST http://localhost:${PORT}/api/check-payment-status`);
   console.log(`  MWALLET CNIC: POST http://localhost:${PORT}/api/initiate-mwallet-cnic`);
+  console.log(`  Card v1.1: POST http://localhost:${PORT}/api/initiate-jazzcash-card`);
+  console.log(`  Card return: POST http://localhost:${PORT}/api/jazzcash-card-return`);
 });
