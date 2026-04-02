@@ -66,9 +66,37 @@ const Book: React.FC = () => {
     }
     if (!paymentComplete || !txnRef) return;
 
-    let cancelled = false;
+    const respCode = (params.get('pp_ResponseCode') || '').trim();
+
     sessionStorage.removeItem('jazzcash_txn_ref');
     sessionStorage.removeItem('jazzcash_booking_id');
+
+    // JazzCash already confirmed success in the POST to /jazzcash-card-return; redirect query mirrors it.
+    // Status inquiry (Retrieve) often stays pending for a long time — do not block UX on that.
+    if (respCode === '000' || respCode === '0') {
+      setTransactionId(txnRef);
+      setStatus('success');
+      void paymentService
+        .ackCardReturnSuccess({
+          transactionRef: txnRef,
+          bookingId: storedBookingId || undefined,
+          responseCode: respCode,
+          ppAmount: params.get('pp_Amount'),
+          billReference: params.get('pp_BillReference'),
+        })
+        .then((r) => {
+          if (!r.success) console.warn('[Book] ack-card-return failed:', r.error);
+        });
+      return;
+    }
+
+    if (respCode === '200') {
+      setStatus('idle');
+      alert(params.get('pp_ResponseMessage') || 'Payment was cancelled.');
+      return;
+    }
+
+    let cancelled = false;
     setStatus('verifying');
     paymentService
       .checkTransactionStatusAfterReturn(txnRef, storedBookingId || undefined)

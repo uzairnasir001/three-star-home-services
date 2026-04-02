@@ -141,6 +141,36 @@ class PaymentService {
     }
   }
 
+  /** Sync booking row when browser already has pp_ResponseCode 000 from card return (Retrieve may lag). */
+  async ackCardReturnSuccess(payload: {
+    transactionRef: string;
+    bookingId?: string;
+    responseCode: string;
+    ppAmount?: string | null;
+    billReference?: string | null;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await fetch(apiUrl('/api/ack-card-return'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transactionRef: payload.transactionRef,
+          bookingId: payload.bookingId,
+          responseCode: payload.responseCode,
+          pp_Amount: payload.ppAmount ?? undefined,
+          pp_BillReference: payload.billReference ?? undefined,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: string;
+      };
+      return { success: Boolean(data.success), error: data.error };
+    } catch {
+      return { success: false, error: 'Network error' };
+    }
+  }
+
   async checkTransactionStatus(transactionRef: string, bookingId?: string): Promise<PaymentResponse> {
     try {
       const response = await fetch(apiUrl('/api/check-payment-status'), {

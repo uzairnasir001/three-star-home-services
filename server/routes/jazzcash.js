@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   runJazzcashIpn,
+  runAckCardReturnSuccess,
   runCheckPaymentStatus,
   runInitiateMwalletCnic,
   runInitiateJazzcashCard,
@@ -17,6 +18,14 @@ router.post('/jazzcash-ipn', async (req, res) => {
   const out = await runJazzcashIpn(req.body || {});
   if (out.json) return res.status(out.statusCode).json(out.json);
   return res.status(out.statusCode).send(out.text ?? '');
+});
+
+/**
+ * After card redirect: SPA calls with pp_* from query when pp_ResponseCode is 000 (Retrieve may still be pending).
+ */
+router.post('/ack-card-return', async (req, res) => {
+  const out = await runAckCardReturnSuccess(req.body || {});
+  return res.status(out.statusCode).json(out.json);
 });
 
 /**

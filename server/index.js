@@ -50,6 +50,7 @@ const PORT = config.port;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`  IPN: POST http://localhost:${PORT}/api/jazzcash-ipn (configure in JazzCash Credentials)`);
+  console.log(`  Ack card return: POST http://localhost:${PORT}/api/ack-card-return`);
   console.log(`  Status: POST http://localhost:${PORT}/api/check-payment-status`);
   console.log(`  MWALLET CNIC: POST http://localhost:${PORT}/api/initiate-mwallet-cnic`);
   console.log(`  Card v1.1: POST http://localhost:${PORT}/api/initiate-jazzcash-card`);

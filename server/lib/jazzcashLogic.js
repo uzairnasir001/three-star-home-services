@@ -104,6 +104,71 @@ export async function runJazzcashIpn(data) {
   }
 }
 
+/**
+ * Mark booking paid from browser return query (pp_ResponseCode 000). Retrieve/API can lag minutes behind
+ * this; same fields JazzCash POSTs to /jazzcash-card-return before redirect.
+ */
+export async function runAckCardReturnSuccess(body) {
+  try {
+    const { transactionRef, bookingId, responseCode, pp_Amount, pp_BillReference } = body || {};
+    const code = String(responseCode ?? '').trim();
+    if (!transactionRef || (code !== '000' && code !== '0')) {
+      return { statusCode: 400, json: { success: false, error: 'Invalid request' } };
+    }
+
+    const supabase = getSupabase();
+    if (!supabase) {
+      return { statusCode: 200, json: { success: true, note: 'supabase_not_configured' } };
+    }
+
+    const updatePayload = {
+      payment_status: 'completed',
+      transaction_id: transactionRef,
+      amount_paid: pkrFromGatewayAmount(pp_Amount),
+    };
+
+    let matchId = bookingId || undefined;
+    if (!matchId) {
+      matchId = await findBookingByTxnRef(supabase, transactionRef);
+    }
+    const billRef = pp_BillReference != null ? String(pp_BillReference).trim() : '';
+    if (!matchId && billRef) {
+      const { data: row } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('id', billRef)
+        .limit(1)
+        .maybeSingle();
+      matchId = row?.id;
+      if (!matchId) {
+        const asUuid = uuidFromStrippedBillRef(billRef);
+        if (asUuid) {
+          const { data: row2 } = await supabase
+            .from('bookings')
+            .select('id')
+            .eq('id', asUuid)
+            .limit(1)
+            .maybeSingle();
+          matchId = row2?.id;
+        }
+      }
+    }
+
+    if (matchId) {
+      const { error } = await supabase.from('bookings').update(updatePayload).eq('id', matchId);
+      if (error) {
+        console.error('[Ack card return] Supabase update error:', error);
+        return { statusCode: 500, json: { success: false, error: error.message } };
+      }
+    }
+
+    return { statusCode: 200, json: { success: true } };
+  } catch (err) {
+    console.error('[Ack card return] Error:', err);
+    return { statusCode: 500, json: { success: false, error: 'Internal error' } };
+  }
+}
+
 export async function runCheckPaymentStatus(body) {
   try {
     const { transactionRef, bookingId } = body || {};
