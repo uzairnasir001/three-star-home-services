@@ -58,23 +58,38 @@ const Book: React.FC = () => {
     const paymentComplete = params.get('payment') === 'complete' || params.get('pp_ResponseCode');
     const txnRef = params.get('pp_TxnRefNo') || sessionStorage.getItem('jazzcash_txn_ref');
     const storedBookingId = sessionStorage.getItem('jazzcash_booking_id');
-    if (paymentComplete && txnRef) {
-      sessionStorage.removeItem('jazzcash_txn_ref');
-      sessionStorage.removeItem('jazzcash_booking_id');
-      setStatus('verifying');
-      paymentService.checkTransactionStatus(txnRef, storedBookingId || undefined).then((result) => {
+    if (!paymentComplete || !txnRef) return;
+
+    let cancelled = false;
+    sessionStorage.removeItem('jazzcash_txn_ref');
+    sessionStorage.removeItem('jazzcash_booking_id');
+    setStatus('verifying');
+    paymentService
+      .checkTransactionStatusAfterReturn(txnRef, storedBookingId || undefined)
+      .then((result) => {
+        if (cancelled) return;
         if (result.success) {
           setStatus('success');
-        } else {
-          const msg =
-            params.get('pp_ResponseMessage') ||
-            result.error ||
-            'Payment could not be verified.';
-          alert(typeof msg === 'string' ? msg : 'Payment could not be verified.');
-          setStatus('idle');
+          return;
         }
+        if (String(result.status || '').toLowerCase() === 'pending') {
+          alert(
+            'Your payment is still being processed. Please wait a few minutes and refresh this page, or check your booking status later.'
+          );
+          setStatus('idle');
+          return;
+        }
+        const msg =
+          params.get('pp_ResponseMessage') ||
+          result.error ||
+          'Payment could not be verified.';
+        alert(typeof msg === 'string' ? msg : 'Payment could not be verified.');
+        setStatus('idle');
       });
-    }
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const validatePhone = (phone: string) => {

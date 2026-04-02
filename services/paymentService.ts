@@ -156,6 +156,29 @@ class PaymentService {
       return { success: false, error: 'Error checking transaction status' };
     }
   }
+
+  /**
+   * After card redirect, JazzCash status inquiry often returns pending once; poll until completed,
+   * definitively failed/cancelled, or attempts exhausted.
+   */
+  async checkTransactionStatusAfterReturn(
+    transactionRef: string,
+    bookingId?: string
+  ): Promise<PaymentResponse> {
+    const delaysMs = [3000, 5000, 8000, 12000, 20000, 30000, 45000];
+    let last: PaymentResponse = { success: false, error: 'Payment could not be verified.' };
+
+    for (let attempt = 0; attempt <= delaysMs.length; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, delaysMs[attempt - 1]));
+      }
+      last = await this.checkTransactionStatus(transactionRef, bookingId);
+      if (last.success) return last;
+      const st = String(last.status || '').toLowerCase();
+      if (st === 'cancelled' || st === 'failed') return last;
+    }
+    return last;
+  }
 }
 
 export const paymentService = new PaymentService();
