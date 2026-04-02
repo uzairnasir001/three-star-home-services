@@ -158,24 +158,28 @@ class PaymentService {
   }
 
   /**
-   * After card redirect, JazzCash status inquiry often returns pending once; poll until completed,
-   * definitively failed/cancelled, or attempts exhausted.
+   * After card redirect, poll until JazzCash reports completed, or cancelled/failed.
+   * Keeps "verifying" on screen until then; only stops early on terminal failure states.
+   * Long safety cap avoids an unbounded hang if the gateway never returns a final state.
    */
   async checkTransactionStatusAfterReturn(
     transactionRef: string,
     bookingId?: string
   ): Promise<PaymentResponse> {
-    const delaysMs = [3000, 5000, 8000, 12000, 20000, 30000, 45000];
-    let last: PaymentResponse = { success: false, error: 'Payment could not be verified.' };
+    const MAX_WAIT_MS = 2 * 60 * 60 * 1000; // 2h safety cap
+    const started = Date.now();
+    let delayMs = 4000;
+    const MAX_DELAY_MS = 30000;
+    let last: PaymentResponse = { success: false, status: 'pending' };
 
-    for (let attempt = 0; attempt <= delaysMs.length; attempt++) {
-      if (attempt > 0) {
-        await new Promise((r) => setTimeout(r, delaysMs[attempt - 1]));
-      }
+    while (Date.now() - started < MAX_WAIT_MS) {
       last = await this.checkTransactionStatus(transactionRef, bookingId);
       if (last.success) return last;
       const st = String(last.status || '').toLowerCase();
       if (st === 'cancelled' || st === 'failed') return last;
+
+      await new Promise((r) => setTimeout(r, delayMs));
+      delayMs = Math.min(Math.floor(delayMs * 1.12), MAX_DELAY_MS);
     }
     return last;
   }
