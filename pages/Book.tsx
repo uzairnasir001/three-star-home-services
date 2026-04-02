@@ -44,6 +44,7 @@ const Book: React.FC = () => {
     txnRef: string;
     responseMessage: string | null;
   } | null>(null);
+  const [statusInquiryBusy, setStatusInquiryBusy] = useState(false);
 
   const bookingLineItem = SERVICES.find((s) => s.name === formData.service);
   const paymentAmount = bookingLineItem?.price ?? 0;
@@ -67,6 +68,12 @@ const Book: React.FC = () => {
     const service = SERVICES.find((s) => s.name === formData.service);
     setSelectedServicePrice(service?.price ?? null);
   }, [formData.service]);
+
+  useEffect(() => {
+    if (status === 'success') {
+      window.scrollTo(0, 0);
+    }
+  }, [status]);
 
   // Handle return from JazzCash (card redirect or manual deep link). Query stays on pathname; hash is #book.
   useEffect(() => {
@@ -258,6 +265,27 @@ const Book: React.FC = () => {
     setCardReturnSuccess(null);
   };
 
+  /** Optional JazzCash Status Inquiry — separate Network request; success UI does not depend on this. */
+  const runOptionalStatusInquiry = async () => {
+    if (!transactionId) return;
+    setStatusInquiryBusy(true);
+    try {
+      const r = await paymentService.checkTransactionStatus(transactionId, bookingId || undefined);
+      const msg = [
+        `success: ${r.success}`,
+        r.status != null && r.status !== '' ? `status: ${r.status}` : null,
+        r.error ? `error: ${r.error}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
+      alert(msg || 'Empty response');
+    } catch {
+      alert('Status inquiry failed to complete.');
+    } finally {
+      setStatusInquiryBusy(false);
+    }
+  };
+
   if (status === 'verifying') {
     return (
       <div className="py-20 max-w-xl mx-auto text-center px-4 animate-fade-in">
@@ -323,9 +351,25 @@ const Book: React.FC = () => {
               <h2 className="text-3xl font-bold text-primary mb-4">Request Received!</h2>
             </>
           )}
-          <p className="text-gray-600 mb-8 leading-relaxed">
+          <p className="text-gray-600 mb-6 leading-relaxed">
             Your secure booking has been logged. Our dispatch team will verify your details and contact you within 30 minutes for urgent requests in Multan.
           </p>
+          {transactionId ? (
+            <div className="mb-8 rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-left">
+              <p className="text-xs text-gray-600 mb-3">
+                Optional: run JazzCash <strong>Status Inquiry</strong> (<code className="text-[11px]">POST /api/check-payment-status</code>).
+                Open DevTools → Network, then click below to see a separate request. This does not affect your payment result above.
+              </p>
+              <button
+                type="button"
+                disabled={statusInquiryBusy}
+                onClick={() => void runOptionalStatusInquiry()}
+                className="w-full sm:w-auto border-2 border-primary text-primary px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
+              >
+                {statusInquiryBusy ? 'Checking…' : 'Check payment status (Retrieve)'}
+              </button>
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={dismissSuccess}
