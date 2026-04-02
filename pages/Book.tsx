@@ -58,6 +58,12 @@ const Book: React.FC = () => {
     const paymentComplete = params.get('payment') === 'complete' || params.get('pp_ResponseCode');
     const txnRef = params.get('pp_TxnRefNo') || sessionStorage.getItem('jazzcash_txn_ref');
     const storedBookingId = sessionStorage.getItem('jazzcash_booking_id');
+    if (paymentComplete && !txnRef) {
+      console.warn(
+        '[Book] payment=complete but no pp_TxnRefNo in URL and no jazzcash_txn_ref in session (common if return domain ≠ booking domain).'
+      );
+      return;
+    }
     if (!paymentComplete || !txnRef) return;
 
     let cancelled = false;
@@ -72,18 +78,20 @@ const Book: React.FC = () => {
           setStatus('success');
           return;
         }
-        if (String(result.status || '').toLowerCase() === 'pending') {
-          alert(
-            'Your payment is still being processed. Please wait a few minutes and refresh this page, or check your booking status later.'
-          );
+        const st = String(result.status || '').toLowerCase();
+        // Only treat cancelled/failed as hard errors; URL pp_ResponseMessage can be interim while txn is still pending.
+        if (st === 'cancelled' || st === 'failed') {
+          const msg =
+            result.error ||
+            params.get('pp_ResponseMessage') ||
+            'Payment could not be verified.';
+          alert(typeof msg === 'string' ? msg : 'Payment could not be verified.');
           setStatus('idle');
           return;
         }
-        const msg =
-          params.get('pp_ResponseMessage') ||
-          result.error ||
-          'Payment could not be verified.';
-        alert(typeof msg === 'string' ? msg : 'Payment could not be verified.');
+        alert(
+          'Your payment is still being processed. Please wait a few minutes and refresh this page, or check your booking status later.'
+        );
         setStatus('idle');
       });
 

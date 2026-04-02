@@ -131,15 +131,18 @@ export async function runCheckPaymentStatus(body) {
     const data = await response.json().catch(() => ({}));
     const status = data.status || data.pp_Status || '';
     const responseCode = data.pp_ResponseCode ?? data.responseCode;
+    const code = responseCode != null ? String(responseCode).trim() : '';
+    const st = String(status || '').toUpperCase();
 
     let paymentStatus = 'pending';
-    if (String(responseCode) === '000' || String(responseCode) === '0' || status === 'SUCCESS') {
+    if (code === '000' || code === '0' || st === 'SUCCESS') {
       paymentStatus = 'completed';
-    } else if (String(responseCode) === '200' || status === 'CANCELLED') {
+    } else if (code === '200' || st === 'CANCELLED') {
       paymentStatus = 'cancelled';
-    } else if (responseCode && String(responseCode) !== '000') {
+    } else if (st === 'FAILED' || st === 'FAILURE' || st === 'REJECTED') {
       paymentStatus = 'failed';
     }
+    // Otherwise stay pending — Retrieve often returns non-000 while MPAY/card is still clearing; do not mark failed.
 
     let idToUpdate = bookingId;
     if (!idToUpdate && supabase) {
