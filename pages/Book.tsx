@@ -28,6 +28,11 @@ const Book: React.FC = () => {
   const [selectedServicePrice, setSelectedServicePrice] = useState<number | null>(null);
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
+  /** Set when user returns from JazzCash card redirect with pp_ResponseCode 000 — MWALLET flow unchanged. */
+  const [cardReturnSuccess, setCardReturnSuccess] = useState<{
+    txnRef: string;
+    responseMessage: string | null;
+  } | null>(null);
 
   const bookingLineItem = SERVICES.find((s) => s.name === formData.service);
   const paymentAmount = bookingLineItem?.price ?? 0;
@@ -75,6 +80,10 @@ const Book: React.FC = () => {
     // Status inquiry (Retrieve) often stays pending for a long time — do not block UX on that.
     if (respCode === '000' || respCode === '0') {
       setTransactionId(txnRef);
+      setCardReturnSuccess({
+        txnRef,
+        responseMessage: params.get('pp_ResponseMessage'),
+      });
       setStatus('success');
       void paymentService
         .ackCardReturnSuccess({
@@ -103,6 +112,7 @@ const Book: React.FC = () => {
       .then((result) => {
         if (cancelled) return;
         if (result.success) {
+          setCardReturnSuccess(null);
           setStatus('success');
           return;
         }
@@ -181,6 +191,7 @@ const Book: React.FC = () => {
       }
     }
     if (method && method !== 'JazzCash') {
+      setCardReturnSuccess(null);
       setStatus('success');
     }
   };
@@ -212,6 +223,7 @@ const Book: React.FC = () => {
     }
 
     if (paymentStatus === 'completed') {
+      setCardReturnSuccess(null);
       setStatus('success');
     } else {
       alert(`JazzCash payment failed: ${message || code || 'Unknown error'}`);
@@ -225,9 +237,14 @@ const Book: React.FC = () => {
   };
 
   const handlePaymentCancel = () => {
-    // Reset to form
     setStatus('idle');
     setBookingId(null);
+    setCardReturnSuccess(null);
+  };
+
+  const dismissSuccess = () => {
+    setStatus('idle');
+    setCardReturnSuccess(null);
   };
 
   if (status === 'verifying') {
@@ -263,16 +280,44 @@ const Book: React.FC = () => {
   }
 
   if (status === 'success') {
+    const cardDone = cardReturnSuccess != null;
     return (
       <div className="py-20 max-w-xl mx-auto text-center px-4 animate-fade-in">
         <div className="bg-white p-12 rounded-3xl shadow-2xl">
-          <div className="text-6xl mb-6">🛡️</div>
-          <h2 className="text-3xl font-bold text-primary mb-4">Request Received!</h2>
+          {cardDone ? (
+            <>
+              <div className="text-6xl mb-4" aria-hidden>
+                ✓
+              </div>
+              <p className="text-sm font-bold uppercase tracking-widest text-green-700 mb-2">
+                Transaction complete
+              </p>
+              <h2 className="text-3xl font-bold text-primary mb-4">Payment successful</h2>
+              <p className="text-gray-700 mb-4 leading-relaxed">
+                Your JazzCash card payment went through. This is based on JazzCash&apos;s confirmation
+                (<span className="font-mono text-sm">pp_ResponseCode 000</span>).
+              </p>
+              {cardReturnSuccess.responseMessage ? (
+                <p className="text-gray-600 text-sm mb-4 italic border border-gray-100 rounded-xl px-4 py-3 bg-gray-50">
+                  {cardReturnSuccess.responseMessage}
+                </p>
+              ) : null}
+              <p className="text-xs text-gray-500 font-mono mb-8 break-all">
+                Transaction reference: {cardReturnSuccess.txnRef}
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="text-6xl mb-6">🛡️</div>
+              <h2 className="text-3xl font-bold text-primary mb-4">Request Received!</h2>
+            </>
+          )}
           <p className="text-gray-600 mb-8 leading-relaxed">
             Your secure booking has been logged. Our dispatch team will verify your details and contact you within 30 minutes for urgent requests in Multan.
           </p>
-          <button 
-            onClick={() => setStatus('idle')}
+          <button
+            type="button"
+            onClick={dismissSuccess}
             className="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-800 transition-colors"
           >
             Submit Another Request
