@@ -9,6 +9,17 @@ import { formatCurrency } from '../utils/currency';
 import JazzCashPayment from '../components/JazzCashPayment';
 import PaymentMethods from '../components/PaymentMethods';
 
+/** JazzCash redirect is `/?query#book`; also support `/#book?query` if anything strips pathname query. */
+function readPaymentReturnParams(): URLSearchParams {
+  const merged = new URLSearchParams(window.location.search);
+  const hash = window.location.hash || '';
+  const q = hash.indexOf('?');
+  if (q !== -1) {
+    new URLSearchParams(hash.slice(q + 1)).forEach((value, key) => merged.set(key, value));
+  }
+  return merged;
+}
+
 const Book: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
@@ -59,7 +70,7 @@ const Book: React.FC = () => {
 
   // Handle return from JazzCash (card redirect or manual deep link). Query stays on pathname; hash is #book.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = readPaymentReturnParams();
     const paymentComplete = params.get('payment') === 'complete' || params.get('pp_ResponseCode');
     const txnRef = params.get('pp_TxnRefNo') || sessionStorage.getItem('jazzcash_txn_ref');
     const storedBookingId = sessionStorage.getItem('jazzcash_booking_id');

@@ -4,7 +4,8 @@
 export function parseRequestBody(req) {
   const body = req.body;
   if (body == null) return {};
-  if (typeof body === 'object' && !Array.isArray(body) && body.constructor === Object) {
+  // Vercel / some runtimes use plain objects without Object.prototype (constructor check would fail).
+  if (typeof body === 'object' && !Array.isArray(body)) {
     return body;
   }
   if (typeof body === 'string') {
