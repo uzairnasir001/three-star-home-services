@@ -95,7 +95,7 @@ const Book: React.FC = () => {
     sessionStorage.removeItem('jazzcash_booking_id');
 
     // JazzCash already confirmed success in the POST to /jazzcash-card-return; redirect query mirrors it.
-    // Status inquiry (Retrieve) often stays pending for a long time — do not block UX on that.
+    // Orchestrator status inquiry can lag — do not block UX on that.
     if (respCode === '000' || respCode === '0') {
       setTransactionId(txnRef);
       setCardReturnSuccess({
@@ -357,8 +357,8 @@ const Book: React.FC = () => {
           {transactionId ? (
             <div className="mb-8 rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-left">
               <p className="text-xs text-gray-600 mb-3">
-                Optional: run JazzCash <strong>Status Inquiry</strong> (<code className="text-[11px]">POST /api/check-payment-status</code>).
-                Open DevTools → Network, then click below to see a separate request. This does not affect your payment result above.
+                Optional: JazzCash <strong>Status Inquiry</strong> (2026 guide, <code className="text-[11px]">POST /api/check-payment-status</code>).
+                Open DevTools → Network, then click below. This does not affect your payment result above.
               </p>
               <button
                 type="button"
@@ -366,7 +366,7 @@ const Book: React.FC = () => {
                 onClick={() => void runOptionalStatusInquiry()}
                 className="w-full sm:w-auto border-2 border-primary text-primary px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
               >
-                {statusInquiryBusy ? 'Checking…' : 'Check payment status (Retrieve)'}
+                {statusInquiryBusy ? 'Checking…' : 'Check payment status (inquiry API)'}
               </button>
             </div>
           ) : null}

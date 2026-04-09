@@ -141,7 +141,7 @@ class PaymentService {
     }
   }
 
-  /** Sync booking row when browser already has pp_ResponseCode 000 from card return (Retrieve may lag). */
+  /** Sync booking row when browser already has pp_ResponseCode 000 from card return (inquiry may lag). */
   async ackCardReturnSuccess(payload: {
     transactionRef: string;
     bookingId?: string;

@@ -169,6 +169,11 @@ export async function runAckCardReturnSuccess(body) {
   }
 }
 
+/**
+ * Status Inquiry Guide (2026) — POST payment-orchestrator .../status/inquiry (v2).
+ * pp_ResponseCode 000 = inquiry operation OK; payment outcome from pp_PaymentResponseCode + pp_Status (e.g. 121 + Completed).
+ * Legacy ApplicationAPI/.../Retrieve was older MWALLET-style and does not match this guide.
+ */
 export async function runCheckPaymentStatus(body) {
   try {
     const { transactionRef, bookingId } = body || {};
@@ -178,36 +183,53 @@ export async function runCheckPaymentStatus(body) {
       return { statusCode: 400, json: { success: false, error: 'Missing transactionRef' } };
     }
 
+    const { merchantId, password, integritySalt, statusInquiryV2Url } = config.jazzcash;
+    if (!merchantId || !password || !integritySalt) {
+      return { statusCode: 500, json: { success: false, error: 'JazzCash credentials not configured' } };
+    }
+
     const params = {
       pp_TxnRefNo: transactionRef,
-      pp_MerchantID: config.jazzcash.merchantId,
-      pp_Password: config.jazzcash.password,
-      pp_Version: '2.0',
+      pp_MerchantID: merchantId,
+      pp_Password: password,
     };
-    params.pp_SecureHash = generateSecureHash(params, config.jazzcash.integritySalt);
+    params.pp_SecureHash = generateSecureHash(params, integritySalt);
 
-    const retrieveUrl = `${config.jazzcash.apiBaseUrl}/ApplicationAPI/API/2.0/Retrieve`;
-    const response = await fetch(retrieveUrl, {
+    const response = await fetch(statusInquiryV2Url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
 
     const data = await response.json().catch(() => ({}));
-    const status = data.status || data.pp_Status || '';
-    const responseCode = data.pp_ResponseCode ?? data.responseCode;
-    const code = responseCode != null ? String(responseCode).trim() : '';
-    const st = String(status || '').toUpperCase();
+    const inquiryCode = String(data.pp_ResponseCode ?? '').trim();
+    const paymentCode = String(data.pp_PaymentResponseCode ?? '').trim();
+    const ppStatus = String(data.pp_Status ?? '').trim().toUpperCase();
+
+    const inquiryOk = inquiryCode === '000' || inquiryCode === '0';
+    if (!inquiryOk) {
+      return {
+        statusCode: 200,
+        json: {
+          success: false,
+          status: 'pending',
+          transactionId: transactionRef,
+          error:
+            data.pp_ResponseMessage ||
+            data.pp_PaymentResponseMessage ||
+            'Status inquiry did not return success (pp_ResponseCode)',
+        },
+      };
+    }
 
     let paymentStatus = 'pending';
-    if (code === '000' || code === '0' || st === 'SUCCESS') {
+    if (paymentCode === '121' || ppStatus === 'COMPLETED') {
       paymentStatus = 'completed';
-    } else if (code === '200' || st === 'CANCELLED') {
+    } else if (paymentCode === '200' || ppStatus === 'CANCELLED') {
       paymentStatus = 'cancelled';
-    } else if (st === 'FAILED' || st === 'FAILURE' || st === 'REJECTED') {
+    } else if (ppStatus === 'FAILED' || ppStatus === 'FAILURE' || ppStatus === 'REJECTED') {
       paymentStatus = 'failed';
     }
-    // Otherwise stay pending — Retrieve often returns non-000 while MPAY/card is still clearing; do not mark failed.
 
     let idToUpdate = bookingId;
     if (!idToUpdate && supabase) {
@@ -232,7 +254,9 @@ export async function runCheckPaymentStatus(body) {
         transactionId: transactionRef,
         error:
           paymentStatus === 'failed'
-            ? data.pp_ResponseMessage || data.responseMessage || 'Payment failed'
+            ? data.pp_PaymentResponseMessage ||
+              data.pp_ResponseMessage ||
+              'Payment failed'
             : undefined,
       },
     };

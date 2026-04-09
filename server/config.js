@@ -48,6 +48,10 @@ export const config = {
     mwalletRestV2CnicUrl:
       process.env.VITE_JAZZCASH_MWALLET_REST_V2_URL ||
       'https://onlinepayments.jazzcash.com.pk/payment-orchestrator/api/v2/rest/payments/m-wallet',
+    /** Status Inquiry Guide (2026) API v2 — same host family as orchestrator REST. */
+    statusInquiryV2Url:
+      envTrim('JAZZCASH_STATUS_INQUIRY_V2_URL') ||
+      'https://onlinepayments.jazzcash.com.pk/payment-orchestrator/api/v2/rest/payments/status/inquiry',
     /** Card Page Redirection v1.1 — POST form to merchantform (sandbox vs live host differs; override with VITE_JAZZCASH_CARD_MERCHANT_FORM_URL). */
     cardMerchantFormUrl: resolveCardMerchantFormUrl(),
     /** Full URL registered in JazzCash portal (e.g. https://your-app.vercel.app/api/jazzcash-card-return) */

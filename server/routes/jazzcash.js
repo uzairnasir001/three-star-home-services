@@ -21,7 +21,7 @@ router.post('/jazzcash-ipn', async (req, res) => {
 });
 
 /**
- * After card redirect: SPA calls with pp_* from query when pp_ResponseCode is 000 (Retrieve may still be pending).
+ * After card redirect: SPA calls with pp_* from query when pp_ResponseCode is 000 (orchestrator inquiry may lag).
  */
 router.post('/ack-card-return', async (req, res) => {
   const out = await runAckCardReturnSuccess(req.body || {});
